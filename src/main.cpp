@@ -36,7 +36,7 @@ void render_tile(std::shared_ptr<gb::ppu::PPU> ppu, size_t tile_base, size_t pix
 			uint8_t bit2 = (high_byte >> bit_index) & 1;
 			uint8_t color_index = (bit2 << 1) | bit1;
 
-			frame[(pixel_y + y) * WIDTH + (pixel_x + x)] = palette[color_index];
+			frame[(pixel_y + y) * WIDTH + (pixel_x + x)] = palette[ppu->GetBGPColor(color_index)];
 		}
 	}
 }

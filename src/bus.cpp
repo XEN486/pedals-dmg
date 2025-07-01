@@ -46,11 +46,14 @@ uint8_t Bus::ReadMemory(uint16_t address) {
 
 	// PPU registers
 	RouteRead(0xff40, m_PPU->GetLCDControlRegister().Get);
-	RouteRead(0xff44, m_PPU->ReadLY);
-	RouteRead(0xff45, m_PPU->ReadLYC);
 	RouteRead(0xff41, m_PPU->GetLCDStatusRegister().Get);
 	RouteRead(0xff42, m_PPU->ReadSCY);
 	RouteRead(0xff43, m_PPU->ReadSCX);
+	RouteRead(0xff44, m_PPU->ReadLY);
+	RouteRead(0xff45, m_PPU->ReadLYC);
+	RouteRead(0xff47, m_PPU->ReadBGP);
+	RouteRead(0xff48, m_PPU->ReadOBP0);
+	RouteRead(0xff49, m_PPU->ReadOBP1);
 
 	// interrupts
 	RouteRead(0xff0f, ReadIF);
@@ -106,10 +109,13 @@ void Bus::WriteMemory(uint16_t address, uint8_t value) {
 
 	// PPU registers
 	RouteWrite(0xff40, value, m_PPU->GetLCDControlRegister().Set)
-	RouteWrite(0xff45, value, m_PPU->WriteLYC);
 	RouteWrite(0xff41, value, m_PPU->GetLCDStatusRegister().Set);
 	RouteWrite(0xff42, value, m_PPU->WriteSCY);
 	RouteWrite(0xff43, value, m_PPU->WriteSCX);
+	RouteWrite(0xff45, value, m_PPU->WriteLYC);
+	RouteWrite(0xff47, value, m_PPU->WriteBGP);
+	RouteWrite(0xff48, value, m_PPU->WriteOBP0);
+	RouteWrite(0xff49, value, m_PPU->WriteOBP1);
 
 	// interrupt stuff
 	RouteWrite(0xff0f, value, WriteIF);

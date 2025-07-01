@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <memory>
 #include <vector>
+#include <print>
 
 namespace gb::bus {
 	class Bus;
@@ -125,22 +126,7 @@ namespace gb::ppu {
 			m_Bus = bus;
 		}
 
-		uint8_t ReadLY(uint16_t _) {
-			return m_LY;
-		}
-
-		uint8_t ReadLYC(uint16_t _) {
-			return m_LYC;
-		}
-
-		uint8_t ReadSCX(uint16_t _) {
-			return m_SCX;
-		}
-
-		uint8_t ReadSCY(uint16_t _) {
-			return m_SCY;
-		}
-
+	public:
 		void WriteSCX(uint16_t _, uint8_t value) {
 			m_SCX = value;
 		}
@@ -157,16 +143,70 @@ namespace gb::ppu {
 			m_VideoRAM[address - 0x8000] = value;
 		}
 
+		void WriteBGP(uint16_t _, uint8_t value) {
+			m_BGP[3] = (value & 0b11000000) >> 6;
+			m_BGP[2] = (value & 0b00110000) >> 4;
+			m_BGP[1] = (value & 0b00001100) >> 2;
+			m_BGP[0] = (value & 0b00000011) >> 0;
+			std::println("ppu: new background palette [{}, {}, {}, {}]", m_BGP[0], m_BGP[1], m_BGP[2], m_BGP[3]);
+		}
+
+		void WriteOBP0(uint16_t _, uint8_t value) {
+			m_OBP0[3] = (value & 0b11000000) >> 6;
+			m_OBP0[2] = (value & 0b00110000) >> 4;
+			m_OBP0[1] = (value & 0b00001100) >> 2;
+		}
+
+		void WriteOBP1(uint16_t _, uint8_t value) {
+			m_OBP1[3] = (value & 0b11000000) >> 6;
+			m_OBP1[2] = (value & 0b00110000) >> 4;
+			m_OBP1[1] = (value & 0b00001100) >> 2;
+		}
+
+	public:
 		uint8_t ReadVRAM(uint16_t address) {
 			return m_VideoRAM[address - 0x8000];
 		}
 
+		uint8_t ReadLY(uint16_t _) {
+			return m_LY;
+		}
+
+		uint8_t ReadLYC(uint16_t _) {
+			return m_LYC;
+		}
+
+		uint8_t ReadSCX(uint16_t _) {
+			return m_SCX;
+		}
+
+		uint8_t ReadSCY(uint16_t _) {
+			return m_SCY;
+		}
+
+		uint8_t ReadBGP(uint16_t _) {
+			return (m_BGP[3] << 6) | (m_BGP[2] << 4) | (m_BGP[1] << 2) | m_BGP[0];
+		}
+
+		uint8_t ReadOBP0(uint16_t _) {
+			return (m_OBP0[3] << 6) | (m_OBP0[2] << 4) | (m_OBP0[1] << 2);
+		}
+
+		uint8_t ReadOBP1(uint16_t _) {
+			return (m_OBP1[3] << 6) | (m_OBP1[2] << 4) | (m_OBP1[1] << 2);
+		}
+
+	public:
 		uint8_t GetSCX() {
 			return m_SCX;
 		}
 
 		uint8_t GetSCY() {
 			return m_SCY;
+		}
+
+		uint8_t GetBGPColor(uint8_t color) {
+			return m_BGP[color];
 		}
 
 		registers::LCDControlRegister& GetLCDControlRegister() {
@@ -205,6 +245,10 @@ namespace gb::ppu {
 
 		size_t m_LastCycles = 0;
 		size_t m_Cycles = 0;
+
+		uint8_t m_BGP[4] = { 0 };
+		uint8_t m_OBP0[4] = { 0 };
+		uint8_t m_OBP1[4] = { 0 };
 	};
 }
 
