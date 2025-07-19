@@ -1,7 +1,7 @@
-#include "sm83.h"
+#include "cpu.h"
 #include <print>
 
-using namespace gb::cpu;
+using namespace dmg::cpu;
 
 void SM83::LD(uint16_t& dst, uint16_t src, uint8_t cycles) {
 	dst = src;
@@ -24,23 +24,24 @@ void SM83::LD(uint8_t& dst, uint16_t addr, uint8_t cycles) {
 }
 
 void SM83::LD(uint16_t& dst, uint16_t src, uint8_t n, uint8_t cycles) {
-	uint16_t result = src + static_cast<int8_t>(n);
+	int result = src + static_cast<int8_t>(n);
 	
 	ClearFlag(Flags::Zero);
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, ((src ^ n ^ result) & 0x10) == 0x10);
-	SetFlagByValue(Flags::Carry, ((src ^ n ^ result) & 0x100) == 0x100);
+	SetFlagByValue(Flags::HalfCarry, ((src ^ static_cast<int8_t>(n) ^ result) & 0x1000) == 0x1000);
+	SetFlagByValue(Flags::Carry, (result & 0x10000) != 0);
 	
-	dst = result;
+	dst = static_cast<uint16_t>(result);
 	m_LastOpCycles += cycles;
 }
 
 void SM83::INC(uint8_t& reg) {
-	SetFlagByValue(Flags::Zero, (reg + 1) == 0);
+	uint8_t result = reg + 1;
+	SetFlagByValue(Flags::Zero, result == 0);
+	SetFlagByValue(Flags::HalfCarry, ((reg & 0xf) + 1) > 0xf);
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, (reg & 0xF) == 0xF);
-	
-	reg++;
+
+	reg = result;
 	m_LastOpCycles += 4;
 }
 
@@ -51,21 +52,24 @@ void SM83::INC(uint16_t& reg) {
 
 void SM83::INC_addr(uint16_t addr) {
 	uint8_t val = m_Bus->ReadMemory(addr);
-	
-	SetFlagByValue(Flags::Zero, (val + 1) == 0);
+	uint8_t result = val + 1;
+
+	SetFlagByValue(Flags::Zero, result == 0);
+	SetFlagByValue(Flags::HalfCarry, ((val & 0xf) + 1) > 0xf);
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, (val & 0xF) == 0xF);
-	
-	m_Bus->WriteMemory(addr, val + 1);
+
+	m_Bus->WriteMemory(addr, result);
 	m_LastOpCycles += 12;
 }
 
 void SM83::DEC(uint8_t& reg) {
-	SetFlagByValue(Flags::Zero, (reg - 1) == 0);
+	uint8_t result = reg - 1;
+
+	SetFlagByValue(Flags::Zero, result == 0);
 	SetFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, (reg & 0xF) == 0);
+	SetFlagByValue(Flags::HalfCarry, (result & 0xf) == 0xf);
 	
-	reg--;
+	reg = result;
 	m_LastOpCycles += 4;
 }
 
@@ -76,12 +80,13 @@ void SM83::DEC(uint16_t& reg) {
 
 void SM83::DEC_addr(uint16_t addr) {
 	uint8_t val = m_Bus->ReadMemory(addr);
+	uint8_t result = val - 1;
 	
-	SetFlagByValue(Flags::Zero, (val - 1) == 0);
+	SetFlagByValue(Flags::Zero, result == 0);
 	SetFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, (val & 0xF) == 0);
-	
-	m_Bus->WriteMemory(addr, val - 1);
+	SetFlagByValue(Flags::HalfCarry, (result & 0xf) == 0xf);
+
+	m_Bus->WriteMemory(addr, result);
 	m_LastOpCycles += 12;
 }
 
@@ -115,7 +120,7 @@ void SM83::JR(int8_t rel) {
 
 void SM83::JR(Flags flag, bool inverse, int8_t rel) {
 	m_LastOpCycles += 8;
-	if ((m_Registers.f & flag) != (inverse ? flag : 0)) {
+	if ((m_Registers.f & flag) == (inverse ? 0 : flag)) {
 		m_Registers.pc += rel;
 		m_LastOpCycles += 4;
 	}
@@ -131,7 +136,7 @@ void SM83::CALL(uint16_t addr) {
 void SM83::CALL(Flags flag, bool inverse, uint16_t addr) {
 	m_LastOpCycles += 12;
 
-	if ((m_Registers.f & flag) != (inverse ? flag : 0)) {
+	if ((m_Registers.f & flag) == (inverse ? 0 : flag)) {
 		StackPush16(m_Registers.pc);
 		m_Registers.pc = addr;
 
@@ -146,7 +151,7 @@ void SM83::PUSH(uint16_t reg) {
 
 void SM83::RLA() {
 	bool new_carry = (m_Registers.a >> 7) & 1;
-	m_Registers.a = (m_Registers.a << 1) | ((m_Registers.f & Flags::Carry) ? 1 : 0);
+	m_Registers.a = (m_Registers.a << 1) | static_cast<uint8_t>(GetFlag(Flags::Carry));
 	
 	SetFlagByValue(Flags::Carry, new_carry);
 	ClearFlag(Flags::Zero);
@@ -162,9 +167,27 @@ void SM83::POP(uint16_t& reg) {
 	m_LastOpCycles += 12;
 }
 
+void SM83::POP_af() {
+	uint16_t popped = StackPop16();
+	m_Registers.a = (popped >> 8) & 0xff;
+	m_Registers.f = popped & 0xf0;
+
+	m_LastOpCycles += 12;
+}
+
 void SM83::RET() {
 	m_Registers.pc = StackPop16();
 	m_LastOpCycles += 16;
+}
+
+void SM83::RET(Flags flag, bool inverse) {
+	m_LastOpCycles += 8;
+
+	if ((m_Registers.f & flag) == (inverse ? 0 : flag)) {
+		m_Registers.pc = StackPop16();
+
+		m_LastOpCycles += 12;
+	}
 }
 
 void SM83::CP(uint8_t value, uint8_t cycles) {
@@ -172,8 +195,8 @@ void SM83::CP(uint8_t value, uint8_t cycles) {
 
 	SetFlagByValue(Flags::Zero, result == 0);
 	SetFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, ((m_Registers.a & 0xf) - (value & 0xf)) < 0);
-	SetFlagByValue(Flags::Carry, m_Registers.a < value);
+	SetFlagByValue(Flags::HalfCarry, (m_Registers.a & 0xf) < (value & 0xf));
+	SetFlagByValue(Flags::Carry, value > m_Registers.a);
 
 	m_LastOpCycles += cycles;
 }
@@ -184,7 +207,7 @@ void SM83::CP(uint16_t addr, uint8_t cycles) {
 	
 	SetFlagByValue(Flags::Zero, result == 0);
 	SetFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, ((m_Registers.a & 0xf) - (value & 0xf)) < 0);
+	SetFlagByValue(Flags::HalfCarry, (m_Registers.a & 0xf) < (value & 0xf));
 	SetFlagByValue(Flags::Carry, m_Registers.a < value);
 
 	m_LastOpCycles += cycles;
@@ -198,7 +221,7 @@ void SM83::JP(uint16_t addr, uint8_t cycles) {
 void SM83::JP(Flags flag, bool inverse, uint16_t addr) {
 	m_LastOpCycles += 12;
 
-	if ((m_Registers.f & flag) != (inverse ? flag : 0)) {
+	if ((m_Registers.f & flag) == (inverse ? 0 : flag)) {
 		m_Registers.pc = addr;
 		m_LastOpCycles += 4;
 	}
@@ -277,7 +300,7 @@ void SM83::ADDhl(uint16_t reg) {
 	size_t result = m_Registers.hl + reg;
 
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, (r & 0xfff) + (reg & 0xfff) > 0xfff);
+	SetFlagByValue(Flags::HalfCarry, ((r & 0xfff) + (reg & 0xfff)) > 0xfff);
 	SetFlagByValue(Flags::Carry, (result & 0x10000) != 0);
 	m_Registers.hl = static_cast<uint16_t>(result);
 
@@ -285,21 +308,22 @@ void SM83::ADDhl(uint16_t reg) {
 }
 
 void SM83::ADD(int8_t value) {
-	int result = value + m_Registers.sp;
+	int32_t full_result = m_Registers.sp + value;
+	int32_t xor_val = m_Registers.sp ^ value ^ full_result;
 
 	ClearFlag(Flags::Zero);
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, ((m_Registers.sp & 0xF) + (value & 0xF)) > 0xF);
-	SetFlagByValue(Flags::Carry, ((m_Registers.sp & 0xFF) + (value & 0xFF)) > 0xFF);
+	SetFlagByValue(Flags::HalfCarry, xor_val & 0x1000);
+	SetFlagByValue(Flags::Carry, xor_val & 0x10000);
 
-	m_Registers.sp = static_cast<uint16_t>(result);
+	m_Registers.sp = static_cast<uint16_t>(full_result);
 	m_LastOpCycles += 16;
 }
 
 void SM83::OR(uint8_t src, uint8_t cycles) {
 	m_Registers.a |= src;
 
-	SetFlagByValue(Flags::Zero, m_Registers.a);
+	SetFlagByValue(Flags::Zero, m_Registers.a == 0);
 	ClearFlag(Flags::Subtraction);
 	ClearFlag(Flags::HalfCarry);
 	ClearFlag(Flags::Carry);
@@ -310,7 +334,7 @@ void SM83::OR(uint8_t src, uint8_t cycles) {
 void SM83::OR(uint16_t addr) {
 	m_Registers.a |= m_Bus->ReadMemory(addr);
 	
-	SetFlagByValue(Flags::Zero, m_Registers.a);
+	SetFlagByValue(Flags::Zero, m_Registers.a == 0);
 	ClearFlag(Flags::Subtraction);
 	ClearFlag(Flags::HalfCarry);
 	ClearFlag(Flags::Carry);
@@ -328,16 +352,20 @@ void SM83::CPL() {
 
 void SM83::AND(uint8_t src, uint8_t cycles) {
 	m_Registers.a &= src;
-	SetFlagByValue(Flags::Zero, m_Registers.a);
+	SetFlagByValue(Flags::Zero, m_Registers.a == 0);
 	SetFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::Carry);
 
 	m_LastOpCycles += cycles;
 }
 
 void SM83::AND(uint16_t addr) {
 	m_Registers.a &= m_Bus->ReadMemory(addr);
-	SetFlagByValue(Flags::Zero, m_Registers.a);
+	SetFlagByValue(Flags::Zero, m_Registers.a == 0);
 	SetFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::Carry);
 
 	m_LastOpCycles += 8;
 }
@@ -346,13 +374,148 @@ void SM83::RST(uint8_t vec) {
 	StackPush16(m_Registers.pc);
 
 	m_Registers.pc = vec;
+	m_LastOpCycles += 16;
+}
+
+void SM83::ADC(uint8_t value, uint8_t cycles) {
+	uint8_t reg = m_Registers.a;
+	uint16_t result = value + m_Registers.a + GetFlag(Flags::Carry);
+	m_Registers.a = static_cast<uint8_t>(result);
+
+	SetFlagByValue(Flags::Zero, m_Registers.a == 0);
+	ClearFlag(Flags::Subtraction);
+	SetFlagByValue(Flags::HalfCarry, ((reg & 0xf) + (value & 0xf) + GetFlag(Flags::Carry)) > 0xf);
+	SetFlagByValue(Flags::Carry, (result & 0x100) != 0);
+
+	m_LastOpCycles += cycles;
+}
+
+void SM83::HALT() {
+	std::println("cpu: entering halt state");
+	m_State = State::Halt;
+	m_LastOpCycles += 4;
+}
+
+void SM83::RLCA() {
+	uint8_t carry = (m_Registers.a >> 7) & 1;
+	m_Registers.a = (m_Registers.a << 1) | carry;
+
+	SetFlagByValue(Flags::Carry, carry);
+	ClearFlag(Flags::Zero);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+
+	m_LastOpCycles += 4;
+}
+
+// https://github.com/LIJI32/SameBoy/blob/master/Core/sm83_cpu.c
+void SM83::DAA() {
+	int16_t result = m_Registers.af >> 8;
+
+	m_Registers.af &= ~(0xFF00 | Flags::Zero);
+
+	if (m_Registers.af & Flags::Subtraction) {
+		if (m_Registers.af & Flags::HalfCarry) {
+			result = (result - 0x06) & 0xFF;
+		}
+
+		if (m_Registers.af & Flags::Carry) {
+			result -= 0x60;
+		}
+	}
+	else {
+		if ((m_Registers.af & Flags::HalfCarry) || (result & 0x0F) > 0x09) {
+			result += 0x06;
+		}
+
+		if ((m_Registers.af & Flags::Carry) || result > 0x9F) {
+			result += 0x60;
+		}
+	}
+
+	if ((result & 0xFF) == 0) {
+		m_Registers.af |= Flags::Zero;
+	}
+
+	if ((result & 0x100) == 0x100) {
+		m_Registers.af |= Flags::Carry;
+	}
+
+	m_Registers.af &= ~Flags::HalfCarry;
+	m_Registers.af |= result << 8;
+}
+
+void SM83::RRA() {
+	bool lsb = m_Registers.a & 1;
+	uint8_t carry = GetFlag(Flags::Carry) ? 0x80 : 0;
+	m_Registers.a = (m_Registers.a >> 1) | carry;
+
+	SetFlagByValue(Flags::Carry, lsb);
+	ClearFlag(Flags::Zero);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+
+	m_LastOpCycles += 4;
+}
+
+void SM83::CCF() {
+	SetFlagByValue(Flags::Carry, !GetFlag(Flags::Carry));
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+
+	m_LastOpCycles += 4;
+}
+
+void SM83::STOP() {
+	std::println("cpu: entering stop state");
+	m_State = State::Stop;
+
+	m_LastOpCycles += 4;
+}
+
+void SM83::SCF() {
+	SetFlag(Flags::Carry);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 4;
+}
+
+void SM83::SBC(uint8_t value, uint8_t cycles) {
+	uint8_t reg = m_Registers.a;
+	int result = m_Registers.a - value - GetFlag(Flags::Carry);
+
+	m_Registers.a = static_cast<uint8_t>(result);
+
+	SetFlagByValue(Flags::Zero, m_Registers.a == 0);
+	SetFlag(Flags::Subtraction);
+	SetFlagByValue(Flags::HalfCarry, ((reg & 0xf) - (value & 0xf) - GetFlag(Flags::Carry)) < 0);
+	SetFlagByValue(Flags::Carry, result < 0);
+
+	m_LastOpCycles += cycles;
+}
+
+void SM83::RRCA() {
+	uint8_t carry = m_Registers.a & 1;
+	m_Registers.a = ((m_Registers.a >> 1) | (carry << 7));
+
+	SetFlagByValue(Flags::Carry, carry);
+	ClearFlag(Flags::Zero);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
 	m_LastOpCycles += 4;
 }
 
 void SM83::BIT(uint8_t bit, uint8_t reg) {
-	SetFlagByValue(Flags::Zero, (reg & (1 << bit)) == 0);
+	m_Registers.af &= 0xff00 | Flags::Carry;
+	m_Registers.af |= Flags::HalfCarry;
+
 	ClearFlag(Flags::Subtraction);
-	SetFlag(Flags::HalfCarry);
+
+	if (!((1 << bit) & reg)) {
+		m_Registers.af |= Flags::Zero;
+	}
 
 	m_LastOpCycles += 8;
 }
@@ -401,6 +564,9 @@ void SM83::SWAP(uint8_t& reg) {
 	reg = (reg << 4) | (reg >> 4);
 
 	SetFlagByValue(Flags::Zero, reg == 0);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Carry);
 
 	m_LastOpCycles += 8;
 }
@@ -410,7 +576,11 @@ void SM83::SWAP(uint16_t addr) {
 	val = (val << 4) | (val >> 4);
 
 	m_Bus->WriteMemory(addr, val);
+
 	SetFlagByValue(Flags::Zero, val == 0);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Carry);
 
 	m_LastOpCycles += 16;
 }
@@ -427,34 +597,199 @@ void SM83::RES(uint8_t u3, uint16_t addr) {
 	m_LastOpCycles += 16;
 }
 
+void SM83::SET(uint8_t u3, uint8_t& reg) {
+	reg |= (1 << u3);
+	
+	m_LastOpCycles += 8;
+}
+
+void SM83::SET(uint8_t u3, uint16_t addr) {
+	m_Bus->WriteMemory(addr, m_Bus->ReadMemory(addr) | (1 << u3));
+
+	m_LastOpCycles += 16;
+}
+
+void SM83::SLA(uint8_t& reg) {
+	bool carry = reg & 0x80;
+	reg <<= 1;
+
+	SetFlagByValue(Flags::Zero, reg == 0);
+	SetFlagByValue(Flags::Carry, carry);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 8;
+}
+
+void SM83::SLA(uint16_t addr) {
+	uint8_t val = m_Bus->ReadMemory(addr);
+	bool carry = val & 0x80;
+
+	val <<= 1;
+	m_Bus->WriteMemory(addr, val);
+
+	SetFlagByValue(Flags::Zero, val == 0);
+	SetFlagByValue(Flags::Carry, carry);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 16;
+}
+
+void SM83::RLC(uint8_t& reg) {
+	uint8_t carry = (reg & 0x80) >> 7;
+	reg = (reg << 1) | carry;
+
+	SetFlagByValue(Flags::Carry, carry);
+	SetFlagByValue(Flags::Zero, reg == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 8;
+}
+
+void SM83::RLC(uint16_t addr) {
+	uint8_t val = m_Bus->ReadMemory(addr);
+	uint8_t carry = (val & 0x80) >> 7;
+
+	val = (val << 1) | carry;
+	m_Bus->WriteMemory(addr, val);
+
+	SetFlagByValue(Flags::Carry, carry);
+	SetFlagByValue(Flags::Zero, val == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 16;
+}
+
+void SM83::SRL(uint8_t& reg) {
+	bool lsb = reg & 1;
+	reg >>= 1;
+
+	SetFlagByValue(Flags::Carry, lsb);
+	SetFlagByValue(Flags::Zero, reg == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 8;
+}
+
+void SM83::SRL(uint16_t addr) {
+	uint8_t val = m_Bus->ReadMemory(addr);
+	bool lsb = val & 1;
+
+	val >>= 1;
+	m_Bus->WriteMemory(addr, val);
+
+	SetFlagByValue(Flags::Carry, lsb);
+	SetFlagByValue(Flags::Zero, val == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 16;
+}
+
+void SM83::RR(uint8_t& reg) {
+	uint8_t carry = GetFlag(Flags::Carry);
+
+	bool lsb = reg & 1;
+	SetFlagByValue(Flags::Carry, lsb);
+
+	reg >>= 1;
+	reg |= (carry << 7);
+
+	SetFlagByValue(Flags::Zero, reg == 0);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+
+	m_LastOpCycles += 8;
+}
+
+void SM83::RR(uint16_t addr) {
+	uint8_t val = m_Bus->ReadMemory(addr);
+	uint8_t carry = GetFlag(Flags::Carry);
+
+	bool lsb = val & 1;
+	SetFlagByValue(Flags::Carry, lsb);
+
+	val >>= 1;
+	val |= (carry << 7);
+	m_Bus->WriteMemory(addr, val);
+
+	SetFlagByValue(Flags::Zero, val == 0);
+	ClearFlag(Flags::Subtraction);
+	ClearFlag(Flags::HalfCarry);
+
+	m_LastOpCycles += 16;
+}
+
+void SM83::RRC(uint8_t& reg) {
+	uint8_t carry = reg & 1;
+	reg = ((reg >> 1) | (carry << 7));
+
+	SetFlagByValue(Flags::Carry, carry);
+	SetFlagByValue(Flags::Zero, reg == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 8;
+}
+
+void SM83::RRC(uint16_t addr) {
+	uint8_t val = m_Bus->ReadMemory(addr);
+	uint8_t carry = val & 1;
+	val = ((val >> 1) | (carry << 7));
+
+	m_Bus->WriteMemory(addr, val);
+
+	SetFlagByValue(Flags::Carry, carry);
+	SetFlagByValue(Flags::Zero, val == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 16;
+}
+
+void SM83::SRA(uint8_t& reg) {
+	uint8_t carry = reg & 1;
+	uint8_t msb = reg & 0x80;
+
+	reg = (reg >> 1) | msb;
+
+	SetFlagByValue(Flags::Carry, carry);
+	SetFlagByValue(Flags::Zero, reg == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 8;
+}
+
+void SM83::SRA(uint16_t addr) {
+	uint8_t val = m_Bus->ReadMemory(addr);
+	uint8_t carry = val & 1;
+	uint8_t msb = val & 0x80;
+
+	val = (val >> 1) | msb;
+	m_Bus->WriteMemory(addr, val);
+
+	SetFlagByValue(Flags::Carry, carry);
+	SetFlagByValue(Flags::Zero, val == 0);
+	ClearFlag(Flags::HalfCarry);
+	ClearFlag(Flags::Subtraction);
+
+	m_LastOpCycles += 16;
+}
+
 void SM83::Reset() {
 	m_Registers.pc = 0x0000;
+	m_Registers.f = 0x00;
 }
 
 void SM83::Dump(FILE* stream) {
-	std::println(stream, "af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} sp = {:04x} pc = {:04x}",
-		m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Registers.sp, m_Registers.pc);
-}
-
-void SM83::SetDMGBootROMState() {
-	// set registers to their states after the boot rom finishes
-	// these values are for the DMG boot rom
-	m_Registers.af = 0x0100;
-	m_Registers.bc = 0x0013;
-	m_Registers.de = 0x00d8;
-	m_Registers.hl = 0x014d;
-	m_Registers.pc = 0x0100;
-	m_Registers.sp = 0xfffe;
-
-	// the F register depends on the header checksum
-	SetFlag(Flags::Zero);
-	if (m_Bus->GetHeaderChecksum() != 0) {
-		SetFlag(Flags::Subtraction);
-		SetFlag(Flags::HalfCarry);
-	}
-
-	// disable reading boot rom
-	m_Bus->SetBootROMVisibility(false);
+	std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
+		m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
+		m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
 }
 
 void SM83::CBStep() {
@@ -612,20 +947,177 @@ void SM83::CBStep() {
 		case 0xbe: RES(7, m_Registers.hl); break;
 		case 0xbf: RES(7, m_Registers.a); break;
 
+		// SET
+		case 0xc0: SET(0, m_Registers.b); break;
+		case 0xc1: SET(0, m_Registers.c); break;
+		case 0xc2: SET(0, m_Registers.d); break;
+		case 0xc3: SET(0, m_Registers.e); break;
+		case 0xc4: SET(0, m_Registers.h); break;
+		case 0xc5: SET(0, m_Registers.l); break;
+		case 0xc6: SET(0, m_Registers.hl); break;
+		case 0xc7: SET(0, m_Registers.a); break;
+		case 0xc8: SET(1, m_Registers.b); break;
+		case 0xc9: SET(1, m_Registers.c); break;
+		case 0xca: SET(1, m_Registers.d); break;
+		case 0xcb: SET(1, m_Registers.e); break;
+		case 0xcc: SET(1, m_Registers.h); break;
+		case 0xcd: SET(1, m_Registers.l); break;
+		case 0xce: SET(1, m_Registers.hl); break;
+		case 0xcf: SET(1, m_Registers.a); break;
+		case 0xd0: SET(2, m_Registers.b); break;
+		case 0xd1: SET(2, m_Registers.c); break;
+		case 0xd2: SET(2, m_Registers.d); break;
+		case 0xd3: SET(2, m_Registers.e); break;
+		case 0xd4: SET(2, m_Registers.h); break;
+		case 0xd5: SET(2, m_Registers.l); break;
+		case 0xd6: SET(2, m_Registers.hl); break;
+		case 0xd7: SET(2, m_Registers.a); break;
+		case 0xd8: SET(3, m_Registers.b); break;
+		case 0xd9: SET(3, m_Registers.c); break;
+		case 0xda: SET(3, m_Registers.d); break;
+		case 0xdb: SET(3, m_Registers.e); break;
+		case 0xdc: SET(3, m_Registers.h); break;
+		case 0xdd: SET(3, m_Registers.l); break;
+		case 0xde: SET(3, m_Registers.hl); break;
+		case 0xdf: SET(3, m_Registers.a); break;
+		case 0xe0: SET(4, m_Registers.b); break;
+		case 0xe1: SET(4, m_Registers.c); break;
+		case 0xe2: SET(4, m_Registers.d); break;
+		case 0xe3: SET(4, m_Registers.e); break;
+		case 0xe4: SET(4, m_Registers.h); break;
+		case 0xe5: SET(4, m_Registers.l); break;
+		case 0xe6: SET(4, m_Registers.hl); break;
+		case 0xe7: SET(4, m_Registers.a); break;
+		case 0xe8: SET(5, m_Registers.b); break;
+		case 0xe9: SET(5, m_Registers.c); break;
+		case 0xea: SET(5, m_Registers.d); break;
+		case 0xeb: SET(5, m_Registers.e); break;
+		case 0xec: SET(5, m_Registers.h); break;
+		case 0xed: SET(5, m_Registers.l); break;
+		case 0xee: SET(5, m_Registers.hl); break;
+		case 0xef: SET(5, m_Registers.a); break;
+		case 0xf0: SET(6, m_Registers.b); break;
+		case 0xf1: SET(6, m_Registers.c); break;
+		case 0xf2: SET(6, m_Registers.d); break;
+		case 0xf3: SET(6, m_Registers.e); break;
+		case 0xf4: SET(6, m_Registers.h); break;
+		case 0xf5: SET(6, m_Registers.l); break;
+		case 0xf6: SET(6, m_Registers.hl); break;
+		case 0xf7: SET(6, m_Registers.a); break;
+		case 0xf8: SET(7, m_Registers.b); break;
+		case 0xf9: SET(7, m_Registers.c); break;
+		case 0xfa: SET(7, m_Registers.d); break;
+		case 0xfb: SET(7, m_Registers.e); break;
+		case 0xfc: SET(7, m_Registers.h); break;
+		case 0xfd: SET(7, m_Registers.l); break;
+		case 0xfe: SET(7, m_Registers.hl); break;
+		case 0xff: SET(7, m_Registers.a); break;
+
+		// SLA
+		case 0x20: SLA(m_Registers.b); break;
+		case 0x21: SLA(m_Registers.c); break;
+		case 0x22: SLA(m_Registers.d); break;
+		case 0x23: SLA(m_Registers.e); break;
+		case 0x24: SLA(m_Registers.h); break;
+		case 0x25: SLA(m_Registers.l); break;
+		case 0x26: SLA(m_Registers.hl); break;
+		case 0x27: SLA(m_Registers.a); break;
+
+		// RLC
+		case 0x00: RLC(m_Registers.b); break;
+		case 0x01: RLC(m_Registers.c); break;
+		case 0x02: RLC(m_Registers.d); break;
+		case 0x03: RLC(m_Registers.e); break;
+		case 0x04: RLC(m_Registers.h); break;
+		case 0x05: RLC(m_Registers.l); break;
+		case 0x06: RLC(m_Registers.hl); break;
+		case 0x07: RLC(m_Registers.a); break;
+
+		// SRL
+		case 0x38: SRL(m_Registers.b); break;
+		case 0x39: SRL(m_Registers.c); break;
+		case 0x3a: SRL(m_Registers.d); break;
+		case 0x3b: SRL(m_Registers.e); break;
+		case 0x3c: SRL(m_Registers.h); break;
+		case 0x3d: SRL(m_Registers.l); break;
+		case 0x3e: SRL(m_Registers.hl); break;
+		case 0x3f: SRL(m_Registers.a); break;
+
+		// RR
+		case 0x18: RR(m_Registers.b); break;
+		case 0x19: RR(m_Registers.c); break;
+		case 0x1a: RR(m_Registers.d); break;
+		case 0x1b: RR(m_Registers.e); break;
+		case 0x1c: RR(m_Registers.h); break;
+		case 0x1d: RR(m_Registers.l); break;
+		case 0x1e: RR(m_Registers.hl); break;
+		case 0x1f: RR(m_Registers.a); break;
+
+		// RRC
+		case 0x08: RRC(m_Registers.b); break;
+		case 0x09: RRC(m_Registers.c); break;
+		case 0x0a: RRC(m_Registers.d); break;
+		case 0x0b: RRC(m_Registers.e); break;
+		case 0x0c: RRC(m_Registers.h); break;
+		case 0x0d: RRC(m_Registers.l); break;
+		case 0x0e: RRC(m_Registers.hl); break;
+		case 0x0f: RRC(m_Registers.a); break;
+
+		// SRA
+		case 0x28: SRA(m_Registers.b); break;
+		case 0x29: SRA(m_Registers.c); break;
+		case 0x2a: SRA(m_Registers.d); break;
+		case 0x2b: SRA(m_Registers.e); break;
+		case 0x2c: SRA(m_Registers.h); break;
+		case 0x2d: SRA(m_Registers.l); break;
+		case 0x2e: SRA(m_Registers.hl); break;
+		case 0x2f: SRA(m_Registers.a); break;
+
 		default:
-			std::println(stderr, "unknown cb-prefix opcode {:x}", opcode);
+			m_Registers.pc -= 2;
+			std::println(stderr, "cpu: unknown opcode cb {:02x} [{}]", opcode, dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
 			Dump(stderr);
 			exit(1);
 	}
 }
 
 uint8_t SM83::Step() {
+	if (m_DumpInstruction) {
+		Dump(stdout);
+	}
+
 	m_LastOpCycles = 0;
-step:
+
+	bool enable_interrupts = m_EIqueued;
+	m_EIqueued = false;
+
+	// halt state
+	if (m_State == State::Halt) {
+		// if any bits are set in both the IE and IF then wake up from the halt state and handle it if the IME is set.
+		if (m_Bus->GetIE() & m_Bus->GetIF()) {
+			std::println("cpu: waking up from halt state");
+
+			m_State = State::Normal;
+			HandleInterrupts();
+		}
+
+		return 4;
+	}
+
+	// stop state
+	if (m_State == State::Stop) {
+		// if P10-P13 go low then wake up
+		if ((m_Bus->ReadMemory(0xff00) & 0b1111) != 0b1111) {
+			std::println("cpu: waking up from stop state");
+
+			m_State = State::Normal;
+		}
+	}
+
 	uint8_t opcode = Fetch8();
 	switch (opcode) {
 		// NOP
-		case 0x00: break;
+		case 0x00: m_LastOpCycles += 4; break;
 
 		// LD
 		case 0x01: LD(m_Registers.bc, Fetch16(), 12); break;
@@ -719,7 +1211,7 @@ step:
 
 		// INC
 		case 0x03: INC(m_Registers.bc); break;
-		case 0x04: INC(m_Registers.bc); break;
+		case 0x04: INC(m_Registers.b); break;
 		case 0x0c: INC(m_Registers.c); break;
 		case 0x13: INC(m_Registers.de); break;
 		case 0x14: INC(m_Registers.d); break;
@@ -789,10 +1281,14 @@ step:
 		case 0xc1: POP(m_Registers.bc); break;
 		case 0xd1: POP(m_Registers.de); break;
 		case 0xe1: POP(m_Registers.hl); break;
-		case 0xf1: POP(m_Registers.af); break;
+		case 0xf1: POP_af(); break;
 
 		// RET
+		case 0xc0: RET(Flags::Zero, true); break;
+		case 0xc8: RET(Flags::Zero, false); break;
 		case 0xc9: RET(); break;
+		case 0xd0: RET(Flags::Carry, true); break;
+		case 0xd8: RET(Flags::Carry, false); break;
 
 		// CP
 		case 0xb8: CP(m_Registers.b, 4); break;
@@ -817,7 +1313,7 @@ step:
 		case 0xf3: DI(); break;
 
 		// EI
-		case 0xfb: EI(); goto step;
+		case 0xfb: EI(); break;
 
 		// SUB
 		case 0x90: SUB(m_Registers.b, 4); break;
@@ -881,22 +1377,71 @@ step:
 		case 0xf7: RST(0x30); break;
 		case 0xff: RST(0x38); break;
 
+		// ADC
+		case 0x88: ADC(m_Registers.b, 4); break;
+		case 0x89: ADC(m_Registers.c, 4); break;
+		case 0x8a: ADC(m_Registers.d, 4); break;
+		case 0x8b: ADC(m_Registers.e, 4); break;
+		case 0x8c: ADC(m_Registers.h, 4); break;
+		case 0x8d: ADC(m_Registers.l, 4); break;
+		case 0x8e: ADC(m_Bus->ReadMemory(m_Registers.hl), 8); break;
+		case 0x8f: ADC(m_Registers.a, 4); break;
+		case 0xce: ADC(Fetch8(), 8); break;
+
+		// HALT
+		case 0x76: HALT(); break;
+
+		// RETI
+		case 0xd9: RETI(); break;
+
+		// RLCA
+		case 0x07: RLCA(); break;
+
+		// DAA
+		case 0x27: DAA(); break;
+
+		// RRA
+		case 0x1f: RRA(); break;
+
+		// CCF
+		case 0x3f: CCF(); break;
+
+		// STOP
+		case 0x10: STOP(); Fetch8(); break;
+
+		// SCF
+		case 0x37: SCF(); break;
+
+		// SBC
+		case 0x98: SBC(m_Registers.b, 4); break;
+		case 0x99: SBC(m_Registers.c, 4); break;
+		case 0x9a: SBC(m_Registers.d, 4); break;
+		case 0x9b: SBC(m_Registers.e, 4); break;
+		case 0x9c: SBC(m_Registers.h, 4); break;
+		case 0x9d: SBC(m_Registers.l, 4); break;
+		case 0x9e: SBC(m_Bus->ReadMemory(m_Registers.hl), 8); break;
+		case 0x9f: SBC(m_Registers.a, 4); break;
+		case 0xde: SBC(Fetch8(), 8); break;
+
+		// RRCA
+		case 0x0f: RRCA(); break;
+
 		// CB prefix
 		case 0xcb: CBStep(); break;
 		
 		default:
-			std::println(stderr, "cpu: unknown opcode {:x}", opcode);
+			std::println(stderr, "cpu: unknown opcode {:02x} [{}]", opcode, dmg::debugger::DisassembleInstruction(m_Bus, --m_Registers.pc));
 			Dump(stderr);
 			exit(1);
 	}
 
-	// set the IME if it is queued
-	if (m_EIqueued) {
-		m_IME = true;
-	}
-
 	// handle any interrupts
 	HandleInterrupts();
+
+	// set the IME if it is queued
+	if (enable_interrupts) {
+		m_IME = true;
+	}
 
 	return m_LastOpCycles;
 }
@@ -904,11 +1449,11 @@ step:
 void SM83::HandleInterrupts() {
 	// interrupts sorted by their priority
 	static const uint8_t int_priorities[] = {
-		gb::bus::InterruptFlag::VBlank,
-		gb::bus::InterruptFlag::LCD,
-		gb::bus::InterruptFlag::Timer,
-		gb::bus::InterruptFlag::Serial,
-		gb::bus::InterruptFlag::Joypad,
+		dmg::bus::InterruptFlag::VBlank,
+		dmg::bus::InterruptFlag::LCD,
+		dmg::bus::InterruptFlag::Timer,
+		dmg::bus::InterruptFlag::Serial,
+		dmg::bus::InterruptFlag::Joypad,
 	};
 
 	// interrupt handler addresses
@@ -920,25 +1465,21 @@ void SM83::HandleInterrupts() {
 		0x0060,
 	};
 
-	size_t i = 0;
-	for (const uint8_t interrupt : int_priorities) {
-		if (m_IME && ((m_Bus->GetIE() & interrupt) != 0) && ((m_Bus->GetIF() & interrupt) != 0)) {
-			std::println("cpu: servicing interrupt {}", i+1);
+    uint8_t pending = m_Bus->GetIF() & m_Bus->GetIE();
+	if (!m_IME) return;
+    if (!pending) return;
 
-			// acknowledge interrupt
-			m_Bus->SetIF(m_Bus->GetIF() & ~interrupt);
-			m_IME = false;
-
-			// call the interrupt handler
-			StackPush16(m_Registers.pc);
-			m_Registers.pc = int_handlers[i];
-
-			// calling the interrupt handler takes up five m-cycles
-			m_LastOpCycles += 20;
-
-			break;
-		}
-
-		i++;
-	}
+	for (size_t i = 0; i < 5; i++) {
+        uint8_t mask = int_priorities[i];
+        if (pending & mask) {
+			//std::println("cpu: servicing interrupt {}", i+1);
+            m_Bus->SetIF(m_Bus->GetIF() & ~mask);
+            m_IME = false;
+            
+            StackPush16(m_Registers.pc);
+            m_Registers.pc = int_handlers[i];
+            m_LastOpCycles += 20;
+            break;
+        }
+    }
 }

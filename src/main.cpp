@@ -1,64 +1,27 @@
-#include "sm83.h"
+#include "cpu.h"
 #include "bus.h"
 #include "cartridge.h"
 #include "ppu.h"
+#include "joypad.h"
+#include "timer.h"
 
 #include <print>
 #include <fstream>
+#include <cstdio>
 
 #include <SDL3/SDL.h>
-
-#define WIDTH 160
-#define HEIGHT 144
-#define SCALE 6
+#include <SDL3_image/SDL_image.h>
 
 static uint32_t frame[WIDTH * HEIGHT];
-static uint32_t palette[4];
-SDL_Renderer* renderer;
-SDL_Texture* texture;
+static uint32_t palette[5];
 
 static void init_palette(SDL_PixelFormat pfmt) {
 	const SDL_PixelFormatDetails* fmt = SDL_GetPixelFormatDetails(pfmt);
-	palette[0] = SDL_MapRGBA(fmt, nullptr, 255, 255, 255, 255);
-	palette[1] = SDL_MapRGBA(fmt, nullptr, 170, 170, 170, 255);
-	palette[2] = SDL_MapRGBA(fmt, nullptr, 85, 85, 85, 255);
-	palette[3] = SDL_MapRGBA(fmt, nullptr, 0, 0, 0, 255);
-}
-
-void render_tile(std::shared_ptr<gb::ppu::PPU> ppu, size_t tile_base, size_t pixel_x, size_t pixel_y) {
-	for (size_t y = 0; y < 8; y++) {
-		uint8_t low_byte = ppu->ReadVRAM(tile_base + y * 2);
-		uint8_t high_byte = ppu->ReadVRAM(tile_base + y * 2 + 1);
-
-		for (size_t x = 0; x < 8; x++) {
-			uint8_t bit_index = 7 - x;
-			uint8_t bit1 = (low_byte >> bit_index) & 1;
-			uint8_t bit2 = (high_byte >> bit_index) & 1;
-			uint8_t color_index = (bit2 << 1) | bit1;
-
-			frame[(pixel_y + y) * WIDTH + (pixel_x + x)] = palette[ppu->GetBGPColor(color_index)];
-		}
-	}
-}
-
-void render_background(std::shared_ptr<gb::ppu::PPU> ppu) {
-	auto& lcdc = ppu->GetLCDControlRegister();
-	
-	for (size_t tile_y = 0; tile_y < 18; tile_y++) {
-		for (size_t tile_x = 0; tile_x < 20; tile_x++) {
-			uint16_t map_address = lcdc.GetBgTileMapAreaAddress() + tile_y * 32 + tile_x;
-			uint8_t tile_index = ppu->ReadVRAM(map_address);
-
-			uint16_t tile_address;
-			if (lcdc.GetBgWindowTileDataAreaAddress() == 0x8000) {
-				tile_address = 0x8000 + tile_index * 16;
-			} else {
-				tile_address = 0x9000 + static_cast<int8_t>(tile_index) * 16;
-			}
-
-			render_tile(ppu, tile_address, tile_x * 8, tile_y * 8);
-		}
-	}
+	palette[0] = SDL_MapRGBA(fmt, nullptr, 0xc6, 0xde, 0x8c, 255);
+	palette[1] = SDL_MapRGBA(fmt, nullptr, 0x84, 0xa5, 0x63, 255);
+	palette[2] = SDL_MapRGBA(fmt, nullptr, 0x39, 0x61, 0x39, 255);
+	palette[3] = SDL_MapRGBA(fmt, nullptr, 0x08, 0x18, 0x10, 255);
+	palette[4] = SDL_MapRGBA(fmt, nullptr, 0xd2, 0xe6, 0xa6, 255); // LCD off color
 }
 
 int main(int argc, char** argv) {
@@ -67,68 +30,130 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	std::ifstream file(argv[1], std::ios::binary | std::ios::ate);
-	std::streamsize size = file.tellg();
-	file.seekg(0, std::ios::beg);
-
-	std::vector<uint8_t> raw(size);
-	file.read(reinterpret_cast<char*>(raw.data()), size);
-
 	SDL_Init(SDL_INIT_VIDEO);
-	SDL_Window* window = SDL_CreateWindow("laz pedals", WIDTH * SCALE, HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
+	SDL_Window* window = SDL_CreateWindow("Pedals DMG", WIDTH * 2, HEIGHT * 2, SDL_WINDOW_RESIZABLE);
 
-	renderer = SDL_CreateRenderer(window, nullptr);
-	SDL_SetRenderScale(renderer, SCALE, SCALE);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
+	SDL_SetRenderLogicalPresentation(renderer, WIDTH, HEIGHT, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
-	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
 	SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 
-	SDL_Surface* temp_surface = SDL_CreateSurface(1, 1, SDL_PIXELFORMAT_ARGB8888);
-	init_palette(temp_surface->format);
-	SDL_DestroySurface(temp_surface);
+	init_palette(SDL_PIXELFORMAT_ARGB8888);
 
-	auto ppu = std::make_shared<gb::ppu::PPU>(gb::ppu::PPU());
-	auto bus = std::make_shared<gb::bus::Bus>(gb::bus::Bus(ppu));
-	auto cart = gb::cartridge::Cartridge(bus, argv[2]);
-	auto cpu = gb::cpu::SM83(bus);
+	auto ppu = std::make_shared<dmg::ppu::PPU>(dmg::ppu::PPU());
+	auto timer = std::make_shared<dmg::timer::Timer>(dmg::timer::Timer());
+	auto joypad = std::make_shared<dmg::joypad::Joypad>(dmg::joypad::Joypad());
+	auto cart = std::make_shared<dmg::cartridge::Cartridge>(argv[2]);
+	auto bus = std::make_shared<dmg::bus::Bus>(dmg::bus::Bus(ppu, joypad, timer, cart));
+	auto cpu = dmg::cpu::SM83(bus);
 
-	uint8_t mapper = bus->ReadMemory(0x147);
-	if (mapper != 0) {
-		std::println("mapper {} unsupported", mapper);
-		return 1;
-	}
-
-	// set PPU bus
 	ppu->SetBus(bus);
+	timer->SetBus(bus);
 
 	// load boot ROM
-	bus->LoadBootROM(raw);
+	bus->LoadBootROM(argv[1]);
 	cpu.Reset();
-	
-	//cpu.SetDMGBootROMState();
 
 	SDL_Event event;
 	bool running = true;
+	bool single_step = false;
+
+	const int cycles_per_frame = 70224;
+	const double frame_time_ms = 1000.0 / 59.7275;
+	uint64_t last_frame = SDL_GetPerformanceCounter();
+
 	while (running) {
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_EVENT_QUIT:
 					running = false;
 					break;
+
+				case SDL_EVENT_KEY_DOWN:
+					if (event.key.key == SDLK_F12) {
+						SDL_Surface* temp_surface = SDL_CreateSurfaceFrom(WIDTH, HEIGHT, SDL_PIXELFORMAT_ARGB8888, frame, WIDTH * sizeof(uint32_t));
+						IMG_SavePNG(temp_surface, "screenshot.png");
+						SDL_DestroySurface(temp_surface);
+					}
+
+					// F10 - dump CPU state
+					if (event.key.key == SDLK_F10) {
+						cpu.Dump(stdout);
+					}
+
+					// F9 - toggle CPU tracing
+					if (event.key.key == SDLK_F9) {
+						cpu.ToggleDump();
+					}
+
+					// F8 - toggle single step mode
+					if (event.key.key == SDLK_F8) {
+						single_step = !single_step;
+						std::println("single step mode {}", single_step ? "enabled" : "disabled");
+					}
+
+					// F7 - step CPU and dump state
+					if (event.key.key == SDLK_F7) {
+						if (!single_step) break;
+						cpu.Step();
+						cpu.Dump(stdout);
+					}
+
+					if (event.key.key == SDLK_S) joypad->SetButtonState(dmg::joypad::Button::B, true);
+					if (event.key.key == SDLK_A) joypad->SetButtonState(dmg::joypad::Button::A, true);
+					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(dmg::joypad::Button::Start, true);
+					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(dmg::joypad::Button::Select, true);
+					if (event.key.key == SDLK_UP) joypad->SetButtonState(dmg::joypad::Button::Up, true);
+					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(dmg::joypad::Button::Down, true);
+					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(dmg::joypad::Button::Left, true);
+					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(dmg::joypad::Button::Right, true);
+					break;
+
+				case SDL_EVENT_KEY_UP:
+					if (event.key.key == SDLK_S) joypad->SetButtonState(dmg::joypad::Button::B, false);
+					if (event.key.key == SDLK_A) joypad->SetButtonState(dmg::joypad::Button::A, false);
+					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(dmg::joypad::Button::Start, false);
+					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(dmg::joypad::Button::Select, false);
+					if (event.key.key == SDLK_UP) joypad->SetButtonState(dmg::joypad::Button::Up, false);
+					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(dmg::joypad::Button::Down, false);
+					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(dmg::joypad::Button::Left, false);
+					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(dmg::joypad::Button::Right, false);
+					break;
 			}
 		}
 
-		uint8_t cycles = cpu.Step();
-		ppu->Tick(cycles);
+		uint32_t frame_cycles = 0;
 
-		if (ppu->StartedVBlank()) {
-			render_background(ppu);
+		while (frame_cycles < cycles_per_frame) {
+			uint8_t step_cycles = cpu.Step();
+			frame_cycles += step_cycles;
+
+			for (size_t i = 0; i < step_cycles; i++) {
+				ppu->Tick();
+				timer->Tick();
+			}
+		}
+
+		if (ppu->ShouldRender()) {
+			for (size_t i = 0; i < WIDTH * HEIGHT; i++) {
+				frame[i] = palette[ppu->GetFrame()[i]];
+			}
 
 			SDL_UpdateTexture(texture, nullptr, frame, WIDTH * sizeof(uint32_t));
 			SDL_RenderClear(renderer);
 			SDL_RenderTexture(renderer, texture, nullptr, nullptr);
 			SDL_RenderPresent(renderer);
 		}
+
+		uint64_t now = SDL_GetPerformanceCounter();
+		uint64_t elapsed = (now - last_frame) * 1000 / SDL_GetPerformanceFrequency();
+
+		if (elapsed < frame_time_ms) {
+			SDL_Delay(static_cast<uint32_t>(frame_time_ms - elapsed));
+		}
+
+		last_frame = SDL_GetPerformanceCounter();
 	}
 
 	SDL_DestroyTexture(texture);

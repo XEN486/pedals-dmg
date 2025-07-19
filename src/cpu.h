@@ -1,6 +1,7 @@
 #ifndef SM83_H
 #define SM83_H
 
+#include "debugger.h"
 #include "bus.h"
 #include <stdint.h>
 #include <memory>
@@ -14,7 +15,7 @@
 		}; \
 	}
 
-namespace gb::cpu {
+namespace dmg::cpu {
 	enum Flags : uint8_t {
 		Zero		= 0b10000000,
 		Subtraction	= 0b01000000,
@@ -23,7 +24,7 @@ namespace gb::cpu {
 	};
 
 	struct Registers {
-		union { uint16_t af; struct { Flags f; uint8_t a; }; };
+		RegisterPair(a, f);
 		RegisterPair(b, c);
 		RegisterPair(d, e);
 		RegisterPair(h, l);
@@ -32,12 +33,21 @@ namespace gb::cpu {
 		uint16_t pc;
 	};
 
+	enum class State {
+		Normal,
+		Halt,
+		Stop
+	};
+
 	class SM83 {
 	public:
-		SM83(std::shared_ptr<gb::bus::Bus> bus) : m_Bus(bus) {}
+		SM83(std::shared_ptr<dmg::bus::Bus> bus) : m_Bus(bus) {}
 		void Reset();
-		void SetDMGBootROMState();
 		void Dump(FILE* stream);
+
+		void ToggleDump() {
+			m_DumpInstruction = !m_DumpInstruction;
+		}
 
 		// returns the T-cycles the step took
 		uint8_t Step();
@@ -48,12 +58,16 @@ namespace gb::cpu {
 		}
 
 	private:
-		void SetFlag(Flags flag) {
-			m_Registers.f = static_cast<Flags>(m_Registers.f | flag);
+		inline bool GetFlag(Flags flag) {
+			return (m_Registers.f & flag) != 0;
+		}
+
+		inline void SetFlag(Flags flag) {
+			m_Registers.f |= flag;
 		}
 		
-		void ClearFlag(Flags flag) {
-			m_Registers.f = static_cast<Flags>(m_Registers.f & ~flag);
+		inline void ClearFlag(Flags flag) {
+			m_Registers.f &= ~flag;
 		}
 
 		void SetFlagByValue(Flags flag, bool condition) {
@@ -92,8 +106,10 @@ namespace gb::cpu {
 		void RLA();
 
 		void POP(uint16_t& reg);
+		void POP_af();
 
 		void RET();
+		void RET(Flags flag, bool inverse);
 
 		void CP(uint8_t value, uint8_t cycles);
 		void CP(uint16_t addr, uint8_t cycles);
@@ -125,7 +141,27 @@ namespace gb::cpu {
 
 		void RST(uint8_t vec);
 
-	public:
+		void ADC(uint8_t value, uint8_t cycles);
+
+		void HALT();
+
+		void RLCA();
+
+		void DAA();
+
+		void RRA();
+
+		void CCF();
+
+		void STOP();
+
+		void SCF();
+
+		void SBC(uint8_t value, uint8_t cycles);
+
+		void RRCA();
+
+	private:
 		void BIT(uint8_t u3, uint8_t reg);
 		void BIT(uint8_t u3, uint16_t addr);
 
@@ -138,44 +174,68 @@ namespace gb::cpu {
 		void RES(uint8_t u3, uint8_t& reg);
 		void RES(uint8_t u3, uint16_t addr);
 
+		void SET(uint8_t u3, uint8_t& reg);
+		void SET(uint8_t u3, uint16_t addr);
+
+		void SLA(uint8_t& reg);
+		void SLA(uint16_t addr);
+
+		void RLC(uint8_t& reg);
+		void RLC(uint16_t addr);
+
+		void SRL(uint8_t& reg);
+		void SRL(uint16_t addr);
+
+		void RR(uint8_t& reg);
+		void RR(uint16_t addr);
+
+		void RRC(uint8_t& reg);
+		void RRC(uint16_t addr);
+		
+		void SRA(uint8_t& reg);
+		void SRA(uint16_t addr);
+
 	private:
 		void HandleInterrupts();
 		void CBStep();
 
-		void StackPush8(uint8_t data) {
+		inline void StackPush8(uint8_t data) {
 			m_Bus->WriteMemory(--m_Registers.sp, data);
 		}
 
-		void StackPush16(uint16_t data) {
+		inline void StackPush16(uint16_t data) {
 			StackPush8(data >> 8);
 			StackPush8(data & 0xff);
 		}
 
-		uint8_t StackPop8() {
+		inline uint8_t StackPop8() {
 			return m_Bus->ReadMemory(m_Registers.sp++);
 		}
 
-		uint16_t StackPop16() {
+		inline uint16_t StackPop16() {
 			uint8_t lo = StackPop8();
 			uint8_t hi = StackPop8();
 			return (hi << 8) | lo;
 		}
 
-		uint8_t Fetch8() {
+		inline uint8_t Fetch8() {
 			return m_Bus->ReadMemory(m_Registers.pc++);
 		}
 
-		uint16_t Fetch16() {
+		inline uint16_t Fetch16() {
 			m_Registers.pc += 2;
 			return m_Bus->ReadMemory16(m_Registers.pc - 2);
 		}
 
 	private:
 		Registers m_Registers;
-		std::shared_ptr<gb::bus::Bus> m_Bus;
+		std::shared_ptr<dmg::bus::Bus> m_Bus;
 		uint8_t m_LastOpCycles = 0;
 		bool m_IME = false;
 		bool m_EIqueued = false;
+		bool m_DumpInstruction = false;
+
+		State m_State = State::Normal;
 	};
 }
 

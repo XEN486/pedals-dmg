@@ -1,14 +1,21 @@
 #ifndef BUS_H
 #define BUS_H
 
+#include "joypad.h"
 #include "ppu.h"
+#include "timer.h"
+#include "cartridge.h"
 
 #include <stdint.h>
 #include <memory>
 #include <vector>
 #include <print>
 
-namespace gb::bus {
+#include <fstream>
+#include <string>
+#include <cstdlib>
+
+namespace dmg::bus {
 	enum InterruptFlag : uint8_t {
 		Joypad	= 0b00010000,
 		Serial	= 0b00001000,
@@ -19,10 +26,12 @@ namespace gb::bus {
 
 	class Bus {
 	public:
-		Bus(std::shared_ptr<gb::ppu::PPU> ppu) :
+		Bus(std::shared_ptr<dmg::ppu::PPU> ppu, std::shared_ptr<dmg::joypad::Joypad> joypad, std::shared_ptr<dmg::timer::Timer> timer, std::shared_ptr<dmg::cartridge::Cartridge> cart) :
 			m_PPU(ppu),
+			m_Joypad(joypad),
+			m_Timer(timer),
+			m_Cartridge(cart),
 			m_BootROM(256, 0),
-			m_CurrentExternalRAMBank(0x2000, 0),
 			m_WorkRAM(0x2000, 0),
 			m_HighRAM(0x7f, 0) {}
 
@@ -33,16 +42,20 @@ namespace gb::bus {
 			m_BootROM = rom;
 		}
 
-		void LoadCartridgeBank0(uint8_t* bank) {
-			m_CartridgeBank0 = bank;
-		}
+		void LoadBootROM(std::string_view filename) {
+			std::ifstream file(filename.data(), std::ios::binary | std::ios::ate);
+			if (!file) {
+				std::println("failed to load boot rom file '{}'", filename);
+				exit(1);
+			}
 
-		void LoadCartridgeBank(uint8_t* bank) {
-			m_CurrentCartridgeBank = bank;
-		}
+			std::streamsize size = file.tellg();
+			file.seekg(0, std::ios::beg);
 
-		void LoadExternalRAMBank(const std::vector<uint8_t>& bank) {
-			m_CurrentExternalRAMBank = bank;
+			std::vector<uint8_t> raw(size);
+			file.read(reinterpret_cast<char*>(raw.data()), size);
+
+			LoadBootROM(raw);
 		}
 
 		void SetBootROMVisibility(bool enable) {
@@ -64,15 +77,6 @@ namespace gb::bus {
 			WriteMemory(0xff0f, ReadMemory(0xff0f) | interrupt);
 		}
 
-		uint8_t GetHeaderChecksum() {
-			uint8_t checksum = 0;
-			for (uint16_t address = 0x0134; address <= 0x14c; address++) {
-				checksum = checksum - m_CartridgeBank0[address] - 1;
-			}
-
-			return checksum;
-		}
-
 		uint8_t GetIF() const {
 			return m_IF;
 		}
@@ -85,43 +89,71 @@ namespace gb::bus {
 			return m_IE;
 		}
 
+		void SetIE(uint8_t value) {
+			m_IE = value;
+		}
+
 	private:
 		void DisableBootROM(uint16_t addr, uint8_t value) {
 			std::println("bus: disabled boot ROM access");
 			m_DisableBootROM = true;
 		}
 
-		void WriteIE(uint16_t addr, uint8_t value) {
-			m_IF = value;
+		uint8_t ReadSB(uint16_t) {
+			return m_SB;
 		}
 
-		uint8_t ReadIE(uint16_t addr) {
-			return m_IF;
+		void WriteSB(uint16_t, uint8_t value) {
+			m_SB = value;
 		}
 
-		void WriteIF(uint16_t addr, uint8_t value) {
-			m_IF = value;
+		uint8_t ReadSC(uint16_t) {
+			return m_SC;
 		}
 
-		uint8_t ReadIF(uint16_t addr) {
-			return m_IF;
+		void WriteSC(uint16_t, uint8_t value) {
+			m_SC = value;
+
+			if (value == 0x81) {
+				m_SC = 0;
+				//printf("%c", ReadMemory(0xff01));
+			}
+		}
+
+		void WriteIE(uint16_t, uint8_t value) {
+			SetIE(value);
+		}
+
+		uint8_t ReadIE(uint16_t) {
+			return GetIE();
+		}
+
+		void WriteIF(uint16_t, uint8_t value) {
+			SetIF(value);
+		}
+
+		uint8_t ReadIF(uint16_t) {
+			return GetIF();
 		}
 
 	private:
 		std::vector<uint8_t> m_BootROM;
 
-		uint8_t* m_CartridgeBank0 = nullptr;
-		uint8_t* m_CurrentCartridgeBank = nullptr;
-
-		std::vector<uint8_t> m_CurrentExternalRAMBank;
 		std::vector<uint8_t> m_WorkRAM;
 		std::vector<uint8_t> m_HighRAM;
 
 		uint8_t m_IE = 0;
 		uint8_t m_IF = 0;
 
+		uint8_t m_SB = 0;
+		uint8_t m_SC = 0;
+
 		bool m_DisableBootROM = false;
-		std::shared_ptr<gb::ppu::PPU> m_PPU;
+
+		std::shared_ptr<dmg::ppu::PPU> m_PPU;
+		std::shared_ptr<dmg::joypad::Joypad> m_Joypad;
+		std::shared_ptr<dmg::timer::Timer> m_Timer;
+		std::shared_ptr<dmg::cartridge::Cartridge> m_Cartridge;
 	};
 }
 
