@@ -80,7 +80,8 @@ namespace dmg::cpu {
 		void LD(uint8_t& dst, uint8_t src, uint8_t cycles);
 		void LD(uint16_t addr, uint8_t src, uint8_t cycles);
 		void LD(uint8_t& dst, uint16_t addr, uint8_t cycles);
-		void LD(uint16_t& dst, uint16_t src, uint8_t inc, uint8_t cycles);
+		void LD(uint16_t& dst, uint16_t src, int8_t n, uint8_t cycles);
+		void LD_addr(uint16_t addr, uint16_t src, uint8_t cycles);
 
 		void INC(uint8_t& reg);
 		void INC(uint16_t& reg);
@@ -236,6 +237,8 @@ namespace dmg::cpu {
 		bool m_DumpInstruction = false;
 
 		State m_State = State::Normal;
+		bool m_DoubleRead = false;
+		bool m_DontExecuteHandler = false;
 	};
 }
 

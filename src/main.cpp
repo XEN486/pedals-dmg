@@ -129,6 +129,12 @@ int main(int argc, char** argv) {
 			uint8_t step_cycles = cpu.Step();
 			frame_cycles += step_cycles;
 
+			/*
+			if (cpu.GetRegisters().pc == 0x100) {
+				cpu.ToggleDump();
+			}
+			*/
+
 			for (size_t i = 0; i < step_cycles; i++) {
 				ppu->Tick();
 				timer->Tick();

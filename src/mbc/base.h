@@ -89,12 +89,13 @@ namespace dmg::mbc {
 	public:
 		using BaseMBC::BaseMBC;
 		
+		// TODO: make this check if the address is valid
 		uint8_t Read(uint16_t address) override {
 			return m_Raw[address];
 		}
 
 		void Write(uint16_t address, uint8_t value) override {
-			std::println("mbc: attempted to write {:x} -> {:x} in rom!", value, address);
+			std::println("mbc: attempted to write {:02x} -> {:04x} in rom!", value, address);
 		}
 	};
 }

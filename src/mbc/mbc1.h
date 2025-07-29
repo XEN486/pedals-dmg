@@ -11,7 +11,7 @@ namespace dmg::mbc {
 	public:
 		using BaseMBC::BaseMBC;
 
-		MBC1(const std::vector<uint8_t>& raw, MBCFeatures features, std::optional<std::fstream>& save_file) : BaseMBC(raw, features, save_file) {
+		MBC1(const std::vector<uint8_t>& raw, MBCFeatures features, std::optional<std::fstream>& save_file) : BaseMBC(raw, features, save_file), m_RAM(0x8000, 0) {
 			if (m_SaveStream.has_value()) {
 				m_SaveStream.value().read(reinterpret_cast<char*>(m_RAM.data()), 0x8000);
 			}
@@ -49,7 +49,7 @@ namespace dmg::mbc {
 
 		void Write(uint16_t address, uint8_t value) override {
 			if (address < 0x2000) {
-				m_RAMEnabled = (value & 0x0f) == 0x0a;
+				m_RAMEnabled = ((value & 0x0f) == 0x0a) && m_Features.ram;
 			}
 			
 			else if (address < 0x4000) {
@@ -73,14 +73,10 @@ namespace dmg::mbc {
 				if (!m_RAMEnabled) return;
 				uint16_t ramAddr = (address - 0xa000) + (m_BankingMode ? m_RAMBank * 0x2000 : 0);
 				m_RAM[ramAddr] = value;
-
-				if (m_HasBattery) {
-
-				}
 			}
 
 			else {
-				std::println("mbc1: attempted write to ROM space: {:04X} = {:02X}", address, value);
+				std::println("mbc1: attempted to write {:02x} -> {:04x} in rom!", value, address);
 			}
 		}
 
@@ -90,7 +86,6 @@ namespace dmg::mbc {
 		uint8_t m_RAMBank = 0;
 		uint8_t m_BankingMode = 0;
 		bool m_RAMEnabled = false;
-		bool m_HasBattery = false;
 
 		std::vector<uint8_t> m_RAM;
 	};

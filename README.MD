@@ -6,6 +6,7 @@
 ### CPU
 - https://rgbds.gbdev.io/docs/v0.9.2/gbz80.7
 - https://gbdev.io/gb-opcodes/optables
+- https://github.com/robert/gameboy-doctor
 
 ### PPU
 - https://github.com/mattcurrie/dmg-acid2

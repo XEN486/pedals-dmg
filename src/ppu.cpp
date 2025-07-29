@@ -1,32 +1,33 @@
 #include "ppu.h"
 #include "bus.h"
+
 using namespace dmg::ppu;
 using namespace dmg::ppu::registers;
 
-// request interrupt if a mode changed
-#define ModeInterrupt(flag, mode) \
-	if (m_STAT.GetFlag(flag) && m_Mode == mode && m_LastMode != mode) { \
-		m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD); \
-	}
-
 void PPU::Update() {
-	if (m_LY == m_LYC) {
-		// set LYC == LY bit
-		m_STAT.SetBit(LCDStatusBits::LycIsLy);
+	m_STAT.SetLycIsLy(m_LY == m_LYC);
 
-		// if LYC interrupt is enabled then request the interrupt in IF
+	// if LYC interrupt is enabled then request the interrupt in IF
+	if (m_LY == m_LYC) {
 		if (m_STAT.GetFlag(LCDStatusBits::LycIntSelect)) {
 			m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
 		}
 	}
-	
-	else {
-		m_STAT.ClearBit(LCDStatusBits::LycIsLy);
+
+	// mode 0 interrupt
+	if (m_STAT.GetFlag(LCDStatusBits::Mode0IntSelect) && m_Mode == 0 && m_LastMode != 0) {
+		m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
 	}
 
-	ModeInterrupt(LCDStatusBits::Mode0IntSelect, 0);
-	ModeInterrupt(LCDStatusBits::Mode1IntSelect, 1);
-	ModeInterrupt(LCDStatusBits::Mode2IntSelect, 2);
+	// mode 1 interrupt
+	if (m_STAT.GetFlag(LCDStatusBits::Mode1IntSelect) && m_Mode == 1 && m_LastMode != 1) {
+		m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
+	}
+
+	// mode 2 interrupt
+	if (m_STAT.GetFlag(LCDStatusBits::Mode2IntSelect) && m_Mode == 2 && m_LastMode != 2) {
+		m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
+	}
 
 	// set the PPU mode
 	m_STAT.SetPPUMode(m_Mode);
@@ -40,10 +41,13 @@ void PPU::DMATransferOAM(uint16_t, uint8_t value) {
 }
 
 void PPU::Tick() {
-	if (!m_LCDC.GetLcdPpuEnabled()) return;
+	if (!m_LCDC.GetLcdPpuEnabled()) {
+		m_STAT.SetPPUMode(0);
+		return;
+	}
+
 	m_Dots++;
 
-	m_LastMode = m_Mode;
 	switch (m_Mode) {
 		// Horizontal blank
 		case 0: {
@@ -140,6 +144,7 @@ void PPU::Tick() {
 	}
 
 	Update();
+	m_LastMode = m_Mode;
 }
 
 void PPU::RenderScanline() {
@@ -153,11 +158,9 @@ void PPU::RenderScanline() {
 	uint8_t window_tile_row = m_WindowLine / 8;
 	uint8_t window_pixel_y = m_WindowLine % 8;
 
+	//std::println("{}: {:08b} {}", m_LY, m_LCDC.Get(), m_LCDC.GetBgWindowEnabled());
 	for (int x = 0; x < WIDTH; x++) {
 		uint8_t bg_color_index = 0;
-		if (!m_LCDC.GetLcdPpuEnabled()) {
-			m_Frame[m_LY * WIDTH + x] = 5;
-		}
 
 		// background and window
 		if (m_LCDC.GetBgWindowEnabled()) {

@@ -30,7 +30,7 @@ void Timer::Tick() {
 }
 
 void Timer::SetTAC(uint8_t bits) {
-	std::println("timer: tac = {:08b}", bits);
+	//std::println("timer: tac = {:08b}", bits);
 
 	bool was_enabled = m_TIMAenabled;
 	uint8_t old_speed = m_TAC & 0b11;

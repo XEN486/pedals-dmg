@@ -28,7 +28,11 @@ uint8_t Bus::ReadMemory(uint16_t address) {
 		return m_Cartridge->GetMBC()->Read(address);
 	}
 
-	RouteRange(0xc000, 0xdfff) {
+	RouteRange(0xc000, 0xcfff) {
+		return m_WorkRAM[address - 0xc000];
+	}
+
+	RouteRange(0xd000, 0xdfff) {
 		return m_WorkRAM[address - 0xc000];
 	}
 
@@ -119,7 +123,12 @@ void Bus::WriteMemory(uint16_t address, uint8_t value) {
 		return;
 	}
 
-	RouteRange(0xc000, 0xdfff) {
+	RouteRange(0xc000, 0xcfff) {
+		m_WorkRAM[address - 0xc000] = value;
+		return;
+	}
+
+	RouteRange(0xd000, 0xdfff) {
 		m_WorkRAM[address - 0xc000] = value;
 		return;
 	}

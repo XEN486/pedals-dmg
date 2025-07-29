@@ -23,15 +23,20 @@ void SM83::LD(uint8_t& dst, uint16_t addr, uint8_t cycles) {
 	m_LastOpCycles += cycles;
 }
 
-void SM83::LD(uint16_t& dst, uint16_t src, uint8_t n, uint8_t cycles) {
-	int result = src + static_cast<int8_t>(n);
+void SM83::LD(uint16_t& dst, uint16_t src, int8_t n, uint8_t cycles) {
+	int result = static_cast<int>(src + n);
 	
 	ClearFlag(Flags::Zero);
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, ((src ^ static_cast<int8_t>(n) ^ result) & 0x1000) == 0x1000);
-	SetFlagByValue(Flags::Carry, (result & 0x10000) != 0);
+	SetFlagByValue(Flags::HalfCarry, ((m_Registers.sp ^ n ^ (result & 0xffff)) & 0x10) == 0x10);
+	SetFlagByValue(Flags::Carry, ((m_Registers.sp ^ n ^ (result & 0xffff)) & 0x100) == 0x100);
 	
 	dst = static_cast<uint16_t>(result);
+	m_LastOpCycles += cycles;
+}
+
+void SM83::LD_addr(uint16_t addr, uint16_t src, uint8_t cycles) {
+	m_Bus->WriteMemory16(addr, src);
 	m_LastOpCycles += cycles;
 }
 
@@ -158,7 +163,7 @@ void SM83::RLA() {
 	ClearFlag(Flags::Subtraction);
 	ClearFlag(Flags::HalfCarry);
 
-	m_LastOpCycles += 8;
+	m_LastOpCycles += 4;
 }
 
 
@@ -308,15 +313,14 @@ void SM83::ADDhl(uint16_t reg) {
 }
 
 void SM83::ADD(int8_t value) {
-	int32_t full_result = m_Registers.sp + value;
-	int32_t xor_val = m_Registers.sp ^ value ^ full_result;
+	int result = static_cast<int>(m_Registers.sp + value);
 
 	ClearFlag(Flags::Zero);
 	ClearFlag(Flags::Subtraction);
-	SetFlagByValue(Flags::HalfCarry, xor_val & 0x1000);
-	SetFlagByValue(Flags::Carry, xor_val & 0x10000);
+	SetFlagByValue(Flags::HalfCarry, ((m_Registers.sp ^ value ^ (result & 0xffff)) & 0x10) == 0x10);
+	SetFlagByValue(Flags::Carry, ((m_Registers.sp ^ value ^ (result & 0xffff)) & 0x100) == 0x100);
 
-	m_Registers.sp = static_cast<uint16_t>(full_result);
+	m_Registers.sp = static_cast<uint16_t>(result);
 	m_LastOpCycles += 16;
 }
 
@@ -391,8 +395,12 @@ void SM83::ADC(uint8_t value, uint8_t cycles) {
 }
 
 void SM83::HALT() {
-	std::println("cpu: entering halt state");
 	m_State = State::Halt;
+	if (!m_IME) {
+		m_DontExecuteHandler = true;
+		m_DoubleRead = (m_Bus->GetIE() & m_Bus->GetIF() & 0x1f) != 0;
+	}
+
 	m_LastOpCycles += 4;
 }
 
@@ -423,6 +431,7 @@ void SM83::DAA() {
 			result -= 0x60;
 		}
 	}
+
 	else {
 		if ((m_Registers.af & Flags::HalfCarry) || (result & 0x0F) > 0x09) {
 			result += 0x06;
@@ -443,6 +452,8 @@ void SM83::DAA() {
 
 	m_Registers.af &= ~Flags::HalfCarry;
 	m_Registers.af |= result << 8;
+
+	m_LastOpCycles += 4;
 }
 
 void SM83::RRA() {
@@ -467,7 +478,6 @@ void SM83::CCF() {
 }
 
 void SM83::STOP() {
-	std::println("cpu: entering stop state");
 	m_State = State::Stop;
 
 	m_LastOpCycles += 4;
@@ -787,9 +797,16 @@ void SM83::Reset() {
 }
 
 void SM83::Dump(FILE* stream) {
-	std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
-		m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
-		m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
+	//std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
+	//	m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
+	//	m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
+
+	std::println(
+		stream, "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
+		m_Registers.a, m_Registers.f, m_Registers.b, m_Registers.c, m_Registers.d, m_Registers.e, m_Registers.h, m_Registers.l,
+		m_Registers.sp, m_Registers.pc,
+		m_Bus->ReadMemory(m_Registers.pc), m_Bus->ReadMemory(m_Registers.pc + 1), m_Bus->ReadMemory(m_Registers.pc + 2), m_Bus->ReadMemory(m_Registers.pc + 3)
+	);
 }
 
 void SM83::CBStep() {
@@ -1093,12 +1110,16 @@ uint8_t SM83::Step() {
 
 	// halt state
 	if (m_State == State::Halt) {
-		// if any bits are set in both the IE and IF then wake up from the halt state and handle it if the IME is set.
-		if (m_Bus->GetIE() & m_Bus->GetIF()) {
-			std::println("cpu: waking up from halt state");
-
+		if ((m_Bus->GetIE() & m_Bus->GetIF() & 0x1f) != 0) {
 			m_State = State::Normal;
-			HandleInterrupts();
+
+			if (m_DontExecuteHandler) {
+				m_DontExecuteHandler = false;
+			} else {
+				HandleInterrupts();
+			}
+
+			return m_LastOpCycles;
 		}
 
 		return 4;
@@ -1108,13 +1129,18 @@ uint8_t SM83::Step() {
 	if (m_State == State::Stop) {
 		// if P10-P13 go low then wake up
 		if ((m_Bus->ReadMemory(0xff00) & 0b1111) != 0b1111) {
-			std::println("cpu: waking up from stop state");
-
 			m_State = State::Normal;
 		}
+
+		return 4;
 	}
 
 	uint8_t opcode = Fetch8();
+	if (m_DoubleRead) {
+		m_Registers.pc--;
+		m_DoubleRead = false;
+	}
+
 	switch (opcode) {
 		// NOP
 		case 0x00: m_LastOpCycles += 4; break;
@@ -1123,7 +1149,7 @@ uint8_t SM83::Step() {
 		case 0x01: LD(m_Registers.bc, Fetch16(), 12); break;
 		case 0x02: LD(m_Registers.bc, m_Registers.a, 8); break;
 		case 0x06: LD(m_Registers.b, Fetch8(), 8); break;
-		case 0x08: LD(Fetch16(), m_Registers.sp, 20); break;
+		case 0x08: LD_addr(Fetch16(), m_Registers.sp, 20); break;
 		case 0x0a: LD(m_Registers.a, m_Registers.bc, 8); break;
 		case 0x0e: LD(m_Registers.c, Fetch8(), 8); break;
 		case 0x11: LD(m_Registers.de, Fetch16(), 12); break;
@@ -1205,9 +1231,9 @@ uint8_t SM83::Step() {
 		case 0x7e: LD(m_Registers.a, m_Registers.hl, 8); break;
 		case 0x7f: LD(m_Registers.a, m_Registers.a, 4); break;
 		case 0xea: LD(Fetch16(), m_Registers.a, 16); break;
-		case 0xf8: LD(m_Registers.hl, m_Registers.sp++, Fetch8(), 12); break;
+		case 0xf8: LD(m_Registers.hl, m_Registers.sp, Fetch8(), 12); break;
 		case 0xf9: LD(m_Registers.sp, m_Registers.hl, 8); break;
-		case 0xfa: LD(m_Registers.a, Fetch16(), 16); break;
+		case 0xfa: LD(m_Registers.a, m_Bus->ReadMemory(Fetch16()), 16); break;
 
 		// INC
 		case 0x03: INC(m_Registers.bc); break;
@@ -1465,7 +1491,7 @@ void SM83::HandleInterrupts() {
 		0x0060,
 	};
 
-    uint8_t pending = m_Bus->GetIF() & m_Bus->GetIE();
+    uint8_t pending = m_Bus->GetIF() & m_Bus->GetIE() & 0x1f;
 	if (!m_IME) return;
     if (!pending) return;
 

@@ -45,7 +45,7 @@ namespace dmg::bus {
 		void LoadBootROM(std::string_view filename) {
 			std::ifstream file(filename.data(), std::ios::binary | std::ios::ate);
 			if (!file) {
-				std::println("failed to load boot rom file '{}'", filename);
+				std::println("bus: failed to load boot rom file '{}'", filename);
 				exit(1);
 			}
 
@@ -78,7 +78,7 @@ namespace dmg::bus {
 		}
 
 		uint8_t GetIF() const {
-			return m_IF;
+			return m_IF | 0xe0;
 		}
 
 		void SetIF(uint8_t value) {
@@ -95,7 +95,7 @@ namespace dmg::bus {
 
 	private:
 		void DisableBootROM(uint16_t addr, uint8_t value) {
-			std::println("bus: disabled boot ROM access");
+			//std::println("bus: disabled boot ROM access");
 			m_DisableBootROM = true;
 		}
 

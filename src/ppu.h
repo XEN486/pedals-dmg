@@ -108,8 +108,16 @@ namespace dmg::ppu::registers {
 			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b00000111) | (bits & 0b01111000));
 		}
 
+		void SetLycIsLy(bool value) {
+			if (value) {
+				m_Bits = static_cast<LCDStatusBits>(m_Bits | LCDStatusBits::LycIsLy);
+			} else {
+				m_Bits = static_cast<LCDStatusBits>(m_Bits & ~LCDStatusBits::LycIsLy);
+			}
+		}
+
 		void SetPPUMode(uint8_t mode) {
-			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b00000111) | (mode & 0b11));
+			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b01111100) | (mode & 0b00000011));
 		}
 	};
 }
@@ -198,6 +206,7 @@ namespace dmg::ppu {
 
 		uint8_t ReadLY(uint16_t _) {
 			return m_LY;
+			//return 0x90;
 		}
 
 		uint8_t ReadLYC(uint16_t _) {
@@ -271,6 +280,7 @@ namespace dmg::ppu {
 
 	private:
 		std::shared_ptr<dmg::bus::Bus> m_Bus;
+
 		std::vector<uint8_t> m_VideoRAM;
 		std::vector<uint8_t> m_OAM;
 
