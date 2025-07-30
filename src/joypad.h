@@ -45,10 +45,10 @@ namespace dmg::joypad {
 		}
 
 		void SetP1(uint8_t bits) {
-			if (bits & 0b00100000) m_SelectButtons = true;
+			if ((bits & 0b00100000) == 0) m_SelectButtons = true;
 			else m_SelectButtons = false;
 			
-			if (bits & 0b00010000) m_SelectDPad = true;
+			if ((bits & 0b00010000) == 0) m_SelectDPad = true;
 			else m_SelectDPad = false;
 
 			m_TopNibble = bits & 0b11110000;
