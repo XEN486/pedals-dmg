@@ -197,8 +197,11 @@ namespace dmg::ppu {
 		void WriteWY(uint16_t, uint8_t value) {
 			m_WY = value;
 		}
-		
+
 		void DMATransferOAM(uint16_t, uint8_t value);
+
+	private:
+		void RenderScanline();
 	
 	private:
 		std::shared_ptr<dmg::bus::Bus> m_Bus;
@@ -225,6 +228,7 @@ namespace dmg::ppu {
 		uint8_t m_WY = 0;
 
 		uint8_t m_Mode = 2;
+
 		size_t m_Cycles = 0;
 		size_t m_Mode3Penalty = 0;
 
