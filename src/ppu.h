@@ -90,10 +90,6 @@ namespace dmg::ppu {
 			return true;
 		}
 
-		void Tick() {
-
-		}
-
 		const std::vector<uint8_t>& GetFrame() {
 			return m_Frame;
 		}
@@ -105,6 +101,8 @@ namespace dmg::ppu {
 		registers::LCDStatusRegister& GetLCDStatusRegister() {
 			return m_STAT;
 		}
+		
+		void Tick();
 
 	public:
 		uint8_t ReadVRAM(uint16_t address) {
@@ -173,10 +171,6 @@ namespace dmg::ppu {
 			m_OAM[address - 0xfe00] = value;
 		}
 
-		void DMATransferOAM(uint16_t, uint8_t value) {
-			
-		}
-
 		void WriteBGP(uint16_t, uint8_t value) {
 			m_BGP[3] = (value & 0b11000000) >> 6;
 			m_BGP[2] = (value & 0b00110000) >> 4;
@@ -203,6 +197,8 @@ namespace dmg::ppu {
 		void WriteWY(uint16_t, uint8_t value) {
 			m_WY = value;
 		}
+		
+		void DMATransferOAM(uint16_t, uint8_t value);
 	
 	private:
 		std::shared_ptr<dmg::bus::Bus> m_Bus;
@@ -227,6 +223,10 @@ namespace dmg::ppu {
 
 		uint8_t m_WX = 0;
 		uint8_t m_WY = 0;
+
+		uint8_t m_Mode = 2;
+		size_t m_Cycles = 0;
+		size_t m_Mode3Penalty = 0;
 
 		bool m_ShouldRender = false;
 	};
