@@ -41,7 +41,7 @@ void PPU::DMATransferOAM(uint16_t, uint8_t value) {
 }
 
 void PPU::Tick() {
-	if (!m_LCDC.GetLcdPpuEnabled()) {
+	if (!m_LCDC.GetFlag(LCDControlBits::LcdPpuEnable)) {
 		m_STAT.SetPPUMode(0);
 		return;
 	}
@@ -54,7 +54,8 @@ void PPU::Tick() {
 			if (m_Dots >= (376 - m_M3Duration)) {
 				m_Dots = 0;
 				m_LY++;
-				if (m_LY >= m_WY && m_LCDC.GetWindowEnabled()) {
+				
+				if (m_LY >= m_WY && m_LCDC.GetFlag(LCDControlBits::WindowEnable)) {
 					m_WindowLine++;
 				}
 
@@ -154,16 +155,15 @@ void PPU::RenderScanline() {
 	uint8_t bg_tile_row = bg_y / 8;
 	uint8_t bg_pixel_y = bg_y % 8;
 
-	bool window_enabled = m_LCDC.GetWindowEnabled() && (m_LY >= m_WY);
+	bool window_enabled = m_LCDC.GetFlag(LCDControlBits::WindowEnable) && (m_LY >= m_WY);
 	uint8_t window_tile_row = m_WindowLine / 8;
 	uint8_t window_pixel_y = m_WindowLine % 8;
 
-	//std::println("{}: {:08b} {}", m_LY, m_LCDC.Get(), m_LCDC.GetBgWindowEnabled());
 	for (int x = 0; x < WIDTH; x++) {
 		uint8_t bg_color_index = 0;
 
 		// background and window
-		if (m_LCDC.GetBgWindowEnabled()) {
+		if (m_LCDC.GetFlag(LCDControlBits::BgWindowEnable)) {
 			bool use_window = window_enabled && (x >= (m_WX - 7));
 
 			if (use_window) {
@@ -208,7 +208,7 @@ void PPU::RenderScanline() {
 		m_Frame[m_LY * WIDTH + x] = m_BGP[bg_color_index];
 
 		// sprites
-		if (m_LCDC.GetObjectEnabled()) {
+		if (m_LCDC.GetFlag(LCDControlBits::ObjEnable)) {
 			for (const Sprite& sprite : m_Sprites) {
 				int sprite_x = sprite.x - 8;
 				int sprite_y = sprite.y - 16;

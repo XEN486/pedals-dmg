@@ -35,13 +35,13 @@ namespace dmg::ppu::registers {
 		PPUMode			= 0b00000011,
 	};
 
-	template <typename T>
+	template <typename T, uint8_t write_mask>
 	class PPURegisterBase {
 	public:
 		PPURegisterBase() : m_Bits(static_cast<T>(0)) {}
 
-		virtual void Set(uint8_t bits) {
-			m_Bits = static_cast<T>(bits);
+		void Set(uint8_t bits) {
+			m_Bits = static_cast<T>((m_Bits & ~write_mask) | (bits & write_mask));
 		}
 
 		uint8_t Get() const {
@@ -67,18 +67,10 @@ namespace dmg::ppu::registers {
 		T m_Bits;
 	};
 
-	class LCDControlRegister : public PPURegisterBase<LCDControlBits> {
+	class LCDControlRegister : public PPURegisterBase<LCDControlBits, 0b11111111> {
 	public:
-		bool GetLcdPpuEnabled() const {
-			return m_Bits & LCDControlBits::LcdPpuEnable;
-		}
-
 		uint16_t GetWindowTileMapAreaAddress() const {
 			return (m_Bits & LCDControlBits::WindowTileMapArea) ? 0x9c00 : 0x9800;
-		}
-
-		bool GetWindowEnabled() const {
-			return m_Bits & LCDControlBits::WindowEnable;
 		}
 
 		uint16_t GetBgWindowTileDataAreaAddress() const {
@@ -92,22 +84,10 @@ namespace dmg::ppu::registers {
 		uint8_t GetObjectSize() const {
 			return (m_Bits & LCDControlBits::ObjSize) ? 16 : 8;
 		}
-
-		bool GetObjectEnabled() const {
-			return m_Bits & LCDControlBits::ObjEnable;
-		}
-
-		bool GetBgWindowEnabled() const {
-			return m_Bits & LCDControlBits::BgWindowEnable;
-		}
 	};
 
-	class LCDStatusRegister : public PPURegisterBase<LCDStatusBits> {
+	class LCDStatusRegister : public PPURegisterBase<LCDStatusBits, 0b01111000> {
 	public:
-		void Set(uint8_t bits) override {
-			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b00000111) | (bits & 0b01111000));
-		}
-
 		void SetLycIsLy(bool value) {
 			if (value) {
 				m_Bits = static_cast<LCDStatusBits>(m_Bits | LCDStatusBits::LycIsLy);
@@ -117,7 +97,7 @@ namespace dmg::ppu::registers {
 		}
 
 		void SetPPUMode(uint8_t mode) {
-			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b01111100) | (mode & 0b00000011));
+			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b11111100) | (mode & 0b00000011));
 		}
 	};
 }
