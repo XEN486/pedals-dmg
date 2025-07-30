@@ -1,14 +1,11 @@
 #ifndef PPU_H
 #define PPU_H
 
-#include <stdint.h>
-#include <memory>
-#include <vector>
-#include <print>
-#include <queue>
-
 #define WIDTH 160
 #define HEIGHT 144
+
+#include <vector>
+#include <memory>
 
 namespace dmg::bus {
 	class Bus;
@@ -44,6 +41,10 @@ namespace dmg::ppu::registers {
 			m_Bits = static_cast<T>((m_Bits & ~write_mask) | (bits & write_mask));
 		}
 
+		void SetWithoutMask(uint8_t bits) {
+			m_Bits = static_cast<T>(bits);
+		}
+
 		uint8_t Get() const {
 			return m_Bits;
 		}
@@ -67,56 +68,11 @@ namespace dmg::ppu::registers {
 		T m_Bits;
 	};
 
-	class LCDControlRegister : public PPURegisterBase<LCDControlBits, 0b11111111> {
-	public:
-		uint16_t GetWindowTileMapAreaAddress() const {
-			return (m_Bits & LCDControlBits::WindowTileMapArea) ? 0x9c00 : 0x9800;
-		}
-
-		uint16_t GetBgWindowTileDataAreaAddress() const {
-			return (m_Bits & LCDControlBits::BgWindowTileDataArea) ? 0x8000 : 0x8800;
-		}
-
-		uint16_t GetBgTileMapAreaAddress() const {
-			return (m_Bits & LCDControlBits::BgTileMapArea) ? 0x9c00 : 0x9800;
-		}
-
-		uint8_t GetObjectSize() const {
-			return (m_Bits & LCDControlBits::ObjSize) ? 16 : 8;
-		}
-	};
-
-	class LCDStatusRegister : public PPURegisterBase<LCDStatusBits, 0b01111000> {
-	public:
-		void SetLycIsLy(bool value) {
-			if (value) {
-				m_Bits = static_cast<LCDStatusBits>(m_Bits | LCDStatusBits::LycIsLy);
-			} else {
-				m_Bits = static_cast<LCDStatusBits>(m_Bits & ~LCDStatusBits::LycIsLy);
-			}
-		}
-
-		void SetPPUMode(uint8_t mode) {
-			m_Bits = static_cast<LCDStatusBits>((m_Bits & 0b11111100) | (mode & 0b00000011));
-		}
-	};
+	class LCDControlRegister : public PPURegisterBase<LCDControlBits, 0b11111111> {};
+	class LCDStatusRegister : public PPURegisterBase<LCDStatusBits, 0b01111000> {};
 }
 
 namespace dmg::ppu {
-	enum SpriteFlags : uint8_t {
-		ObjToBgPriority = 0b10000000,
-		YFlip			= 0b01000000,
-		XFlip			= 0b00100000,
-		OBP1			= 0b00010000,
-	};
-
-	struct Sprite {
-		uint8_t y;
-		uint8_t x;
-		uint8_t tile;
-		SpriteFlags flags;
-	};
-
 	class PPU {
 	public:
 		PPU() : m_VideoRAM(0x2000, 0), m_OAM(0xa0, 0), m_Frame(WIDTH * HEIGHT, 0) {}
@@ -125,54 +81,29 @@ namespace dmg::ppu {
 			m_Bus = bus;
 		}
 
-	public:
-		void WriteSCX(uint16_t, uint8_t value) {
-			m_SCX = value;
+		bool ShouldRender() {
+			if (!m_ShouldRender) {
+				return false;
+			}
+
+			m_ShouldRender = false;
+			return true;
 		}
 
-		void WriteSCY(uint16_t, uint8_t value) {
-			m_SCY = value;
+		void Tick() {
+
 		}
 
-		void WriteLYC(uint16_t, uint8_t value) {
-			m_LYC = value;
+		const std::vector<uint8_t>& GetFrame() {
+			return m_Frame;
 		}
 
-		void WriteVRAM(uint16_t address, uint8_t value) {
-			m_VideoRAM[address - 0x8000] = value;
+		registers::LCDControlRegister& GetLCDControlRegister() {
+			return m_LCDC;
 		}
 
-		void WriteOAM(uint16_t address, uint8_t value) {
-			m_OAM[address - 0xfe00] = value;
-		}
-
-		void DMATransferOAM(uint16_t, uint8_t value);
-
-		void WriteBGP(uint16_t, uint8_t value) {
-			m_BGP[3] = (value & 0b11000000) >> 6;
-			m_BGP[2] = (value & 0b00110000) >> 4;
-			m_BGP[1] = (value & 0b00001100) >> 2;
-			m_BGP[0] = (value & 0b00000011) >> 0;
-		}
-
-		void WriteOBP0(uint16_t, uint8_t value) {
-			m_OBP0[3] = (value & 0b11000000) >> 6;
-			m_OBP0[2] = (value & 0b00110000) >> 4;
-			m_OBP0[1] = (value & 0b00001100) >> 2;
-		}
-
-		void WriteOBP1(uint16_t, uint8_t value) {
-			m_OBP1[3] = (value & 0b11000000) >> 6;
-			m_OBP1[2] = (value & 0b00110000) >> 4;
-			m_OBP1[1] = (value & 0b00001100) >> 2;
-		}
-
-		void WriteWX(uint16_t, uint8_t value) {
-			m_WX = value;
-		}
-
-		void WriteWY(uint16_t, uint8_t value) {
-			m_WY = value;
+		registers::LCDStatusRegister& GetLCDStatusRegister() {
+			return m_STAT;
 		}
 
 	public:
@@ -222,42 +153,57 @@ namespace dmg::ppu {
 		}
 
 	public:
-		const std::vector<uint8_t>& GetFrame() {
-			return m_Frame;
+		void WriteSCX(uint16_t, uint8_t value) {
+			m_SCX = value;
 		}
 
-		uint8_t GetSCX() {
-			return m_SCX;
+		void WriteSCY(uint16_t, uint8_t value) {
+			m_SCY = value;
 		}
 
-		uint8_t GetSCY() {
-			return m_SCY;
+		void WriteLYC(uint16_t, uint8_t value) {
+			m_LYC = value;
 		}
 
-		registers::LCDControlRegister& GetLCDControlRegister() {
-			return m_LCDC;
+		void WriteVRAM(uint16_t address, uint8_t value) {
+			m_VideoRAM[address - 0x8000] = value;
 		}
 
-		registers::LCDStatusRegister& GetLCDStatusRegister() {
-			return m_STAT;
+		void WriteOAM(uint16_t address, uint8_t value) {
+			m_OAM[address - 0xfe00] = value;
 		}
 
-		bool ShouldRender() {
-			if (!m_ShouldRender) {
-				return false;
-			}
-
-			m_ShouldRender = false;
-			return true;
+		void DMATransferOAM(uint16_t, uint8_t value) {
+			
 		}
 
-	public:
-		void Update();
-		void Tick();
+		void WriteBGP(uint16_t, uint8_t value) {
+			m_BGP[3] = (value & 0b11000000) >> 6;
+			m_BGP[2] = (value & 0b00110000) >> 4;
+			m_BGP[1] = (value & 0b00001100) >> 2;
+			m_BGP[0] = (value & 0b00000011) >> 0;
+		}
 
-	private:
-		void RenderScanline();
+		void WriteOBP0(uint16_t, uint8_t value) {
+			m_OBP0[3] = (value & 0b11000000) >> 6;
+			m_OBP0[2] = (value & 0b00110000) >> 4;
+			m_OBP0[1] = (value & 0b00001100) >> 2;
+		}
 
+		void WriteOBP1(uint16_t, uint8_t value) {
+			m_OBP1[3] = (value & 0b11000000) >> 6;
+			m_OBP1[2] = (value & 0b00110000) >> 4;
+			m_OBP1[1] = (value & 0b00001100) >> 2;
+		}
+
+		void WriteWX(uint16_t, uint8_t value) {
+			m_WX = value;
+		}
+
+		void WriteWY(uint16_t, uint8_t value) {
+			m_WY = value;
+		}
+	
 	private:
 		std::shared_ptr<dmg::bus::Bus> m_Bus;
 
@@ -267,20 +213,13 @@ namespace dmg::ppu {
 		registers::LCDControlRegister m_LCDC;
 		registers::LCDStatusRegister m_STAT;
 
+		std::vector<uint8_t> m_Frame;
+
 		uint8_t m_LY = 0;
 		uint8_t m_LYC = 0;
 
 		uint8_t m_SCX = 0;
 		uint8_t m_SCY = 0;
-
-		uint8_t m_LastMode = 0;
-		uint8_t m_Mode = 2;
-
-		uint8_t m_M3Duration = 172;
-		size_t m_Dots = 0;
-
-		bool m_InVBlank = false;
-		bool m_ShouldRender = false;
 
 		uint8_t m_BGP[4] = { 0 };
 		uint8_t m_OBP0[4] = { 0 };
@@ -289,10 +228,7 @@ namespace dmg::ppu {
 		uint8_t m_WX = 0;
 		uint8_t m_WY = 0;
 
-		uint8_t m_WindowLine = 0;
-
-		std::vector<uint8_t> m_Frame;
-		std::vector<Sprite> m_Sprites;
+		bool m_ShouldRender = false;
 	};
 }
 
