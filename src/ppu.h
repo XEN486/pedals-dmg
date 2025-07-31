@@ -228,7 +228,8 @@ namespace dmg::ppu {
 		uint8_t m_WY = 0;
 
 		uint8_t m_Mode = 2;
-
+		uint8_t m_WindowLine = 0;
+		
 		size_t m_Cycles = 0;
 		size_t m_Mode3Penalty = 0;
 
