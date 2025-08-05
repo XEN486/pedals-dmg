@@ -4,7 +4,7 @@
 #include <string>
 #include <memory>
 
-#include "bus.h"
+#include "../peripherals/bus.h"
 
 namespace dmg::debugger {
 	std::string DisassembleInstruction(std::shared_ptr<dmg::bus::Bus> bus, uint16_t pc);

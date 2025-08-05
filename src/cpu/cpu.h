@@ -1,8 +1,9 @@
 #ifndef SM83_H
 #define SM83_H
 
+#include "../peripherals/bus.h"
 #include "debugger.h"
-#include "bus.h"
+
 #include <stdint.h>
 #include <memory>
 

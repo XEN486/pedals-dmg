@@ -1,9 +1,9 @@
-#include "cpu.h"
-#include "bus.h"
-#include "cartridge.h"
-#include "ppu.h"
-#include "joypad.h"
-#include "timer.h"
+#include "cpu/cpu.h"
+#include "peripherals/bus.h"
+#include "cartridge/cartridge.h"
+#include "ppu/ppu.h"
+#include "peripherals/joypad.h"
+#include "peripherals/timer.h"
 
 #include <print>
 #include <fstream>
@@ -25,7 +25,7 @@ static void init_palette(SDL_PixelFormat pfmt) {
 }
 
 int main(int argc, char** argv) {
-	if (argc < 3) {
+	if (argc < 3) {	
 		std::println("usage: {} [boot rom] [.gb rom]", argv[0]);
 		return 1;
 	}

@@ -1,5 +1,5 @@
 #include "ppu.h"
-#include "bus.h"
+#include "../peripherals/bus.h"
 
 using namespace dmg::ppu;
 
