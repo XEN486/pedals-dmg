@@ -1087,7 +1087,6 @@ void SM83::CBStep() {
 			m_Registers.pc -= 2;
 			std::println(stderr, "cpu: unknown opcode cb {:02x} [{}]", opcode, pedals::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
 			Dump(stderr);
-			exit(1);
 	}
 }
 
@@ -1451,7 +1450,6 @@ uint8_t SM83::Step() {
 		default:
 			std::println(stderr, "cpu: unknown opcode {:02x} [{}]", opcode, pedals::debugger::DisassembleInstruction(m_Bus, --m_Registers.pc));
 			Dump(stderr);
-			exit(1);
 	}
 
 	// handle any interrupts

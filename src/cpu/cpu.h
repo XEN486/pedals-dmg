@@ -197,10 +197,7 @@ namespace pedals::cpu {
 		void SRA(uint8_t& reg);
 		void SRA(uint16_t addr);
 
-	private:
-		void HandleInterrupts();
-		void CBStep();
-
+	public:
 		inline void StackPush8(uint8_t data) {
 			m_Bus->WriteMemory(--m_Registers.sp, data);
 		}
@@ -219,6 +216,10 @@ namespace pedals::cpu {
 			uint8_t hi = StackPop8();
 			return (hi << 8) | lo;
 		}
+
+	private:
+		void HandleInterrupts();
+		void CBStep();
 
 		inline uint8_t Fetch8() {
 			return m_Bus->ReadMemory(m_Registers.pc++);
