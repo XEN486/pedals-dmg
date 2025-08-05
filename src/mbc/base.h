@@ -66,8 +66,8 @@ namespace dmg::mbc {
 			case 0xff: return { MBCType::HuC1,	true,	true,	false,	false,	false,	false };
 			
 			default: {
-				std::println("mbc: unknown MBC type {:02x}", byte);
-				exit(1);
+				std::println("mbc: unknown mbc type {:02x}", byte);
+				return { MBCType::ROM, false, false, false, false, false, false };
 			}
 		}
 	}
