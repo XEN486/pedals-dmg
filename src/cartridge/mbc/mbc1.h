@@ -3,7 +3,7 @@
 
 #include "base.h"
 
-namespace dmg::mbc {
+namespace pedals::mbc {
 	class MBC1 : public BaseMBC {
 	public:
 		using BaseMBC::BaseMBC;

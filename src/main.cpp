@@ -41,12 +41,12 @@ int main(int argc, char** argv) {
 
 	init_palette(SDL_PIXELFORMAT_ARGB8888);
 
-	auto ppu = std::make_shared<dmg::ppu::PPU>(dmg::ppu::PPU());
-	auto timer = std::make_shared<dmg::timer::Timer>(dmg::timer::Timer());
-	auto joypad = std::make_shared<dmg::joypad::Joypad>(dmg::joypad::Joypad());
-	auto cart = std::make_shared<dmg::cartridge::Cartridge>(argv[2]);
-	auto bus = std::make_shared<dmg::bus::Bus>(dmg::bus::Bus(ppu, joypad, timer, cart));
-	auto cpu = dmg::cpu::SM83(bus);
+	auto ppu = std::make_shared<pedals::ppu::PPU>(pedals::ppu::PPU());
+	auto timer = std::make_shared<pedals::timer::Timer>(pedals::timer::Timer());
+	auto joypad = std::make_shared<pedals::joypad::Joypad>(pedals::joypad::Joypad());
+	auto cart = std::make_shared<pedals::cartridge::Cartridge>(argv[2]);
+	auto bus = std::make_shared<pedals::bus::Bus>(pedals::bus::Bus(ppu, joypad, timer, cart));
+	auto cpu = pedals::cpu::SM83(bus);
 
 	ppu->SetBus(bus);
 	timer->SetBus(bus);
@@ -100,25 +100,25 @@ int main(int argc, char** argv) {
 						cpu.Dump(stdout);
 					}
 
-					if (event.key.key == SDLK_S) joypad->SetButtonState(dmg::joypad::Button::B, true);
-					if (event.key.key == SDLK_A) joypad->SetButtonState(dmg::joypad::Button::A, true);
-					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(dmg::joypad::Button::Start, true);
-					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(dmg::joypad::Button::Select, true);
-					if (event.key.key == SDLK_UP) joypad->SetButtonState(dmg::joypad::Button::Up, true);
-					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(dmg::joypad::Button::Down, true);
-					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(dmg::joypad::Button::Left, true);
-					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(dmg::joypad::Button::Right, true);
+					if (event.key.key == SDLK_S) joypad->SetButtonState(pedals::joypad::Button::B, true);
+					if (event.key.key == SDLK_A) joypad->SetButtonState(pedals::joypad::Button::A, true);
+					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(pedals::joypad::Button::Start, true);
+					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(pedals::joypad::Button::Select, true);
+					if (event.key.key == SDLK_UP) joypad->SetButtonState(pedals::joypad::Button::Up, true);
+					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(pedals::joypad::Button::Down, true);
+					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(pedals::joypad::Button::Left, true);
+					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(pedals::joypad::Button::Right, true);
 					break;
 
 				case SDL_EVENT_KEY_UP:
-					if (event.key.key == SDLK_S) joypad->SetButtonState(dmg::joypad::Button::B, false);
-					if (event.key.key == SDLK_A) joypad->SetButtonState(dmg::joypad::Button::A, false);
-					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(dmg::joypad::Button::Start, false);
-					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(dmg::joypad::Button::Select, false);
-					if (event.key.key == SDLK_UP) joypad->SetButtonState(dmg::joypad::Button::Up, false);
-					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(dmg::joypad::Button::Down, false);
-					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(dmg::joypad::Button::Left, false);
-					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(dmg::joypad::Button::Right, false);
+					if (event.key.key == SDLK_S) joypad->SetButtonState(pedals::joypad::Button::B, false);
+					if (event.key.key == SDLK_A) joypad->SetButtonState(pedals::joypad::Button::A, false);
+					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(pedals::joypad::Button::Start, false);
+					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(pedals::joypad::Button::Select, false);
+					if (event.key.key == SDLK_UP) joypad->SetButtonState(pedals::joypad::Button::Up, false);
+					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(pedals::joypad::Button::Down, false);
+					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(pedals::joypad::Button::Left, false);
+					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(pedals::joypad::Button::Right, false);
 					break;
 			}
 		}

@@ -6,8 +6,8 @@
 
 #include "../peripherals/bus.h"
 
-namespace dmg::debugger {
-	std::string DisassembleInstruction(std::shared_ptr<dmg::bus::Bus> bus, uint16_t pc);
+namespace pedals::debugger {
+	std::string DisassembleInstruction(std::shared_ptr<pedals::bus::Bus> bus, uint16_t pc);
 }
 
 #endif

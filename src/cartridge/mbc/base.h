@@ -7,7 +7,7 @@
 #include <optional>
 #include <fstream>
 
-namespace dmg::mbc {
+namespace pedals::mbc {
 	enum class MBCType {
 		ROM,
 		MBC1,

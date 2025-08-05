@@ -7,11 +7,11 @@
 #include <vector>
 #include <memory>
 
-namespace dmg::bus {
+namespace pedals::bus {
 	class Bus;
 }
 
-namespace dmg::ppu::registers {
+namespace pedals::ppu::registers {
 	enum LCDControlBits : uint8_t {
 		LcdPpuEnable			= 0b10000000,
 		WindowTileMapArea		= 0b01000000,
@@ -72,7 +72,7 @@ namespace dmg::ppu::registers {
 	class LCDStatusRegister : public PPURegisterBase<LCDStatusBits, 0b01111000> {};
 }
 
-namespace dmg::ppu {
+namespace pedals::ppu {
 	enum SpriteFlags : uint8_t {
 		Priority	= 0b10000000,
 		YFlip		= 0b01000000,
@@ -91,7 +91,7 @@ namespace dmg::ppu {
 	public:
 		PPU() : m_VideoRAM(0x2000, 0), m_OAM(0xa0, 0), m_Frame(WIDTH * HEIGHT, 0) {}
 		
-		void SetBus(std::shared_ptr<dmg::bus::Bus> bus) {
+		void SetBus(std::shared_ptr<pedals::bus::Bus> bus) {
 			m_Bus = bus;
 		}
 
@@ -218,7 +218,7 @@ namespace dmg::ppu {
 		void RenderScanline();
 	
 	private:
-		std::shared_ptr<dmg::bus::Bus> m_Bus;
+		std::shared_ptr<pedals::bus::Bus> m_Bus;
 
 		std::vector<uint8_t> m_VideoRAM;
 		std::vector<uint8_t> m_OAM;

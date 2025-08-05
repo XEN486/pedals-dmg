@@ -15,7 +15,7 @@
 #include <string>
 #include <cstdlib>
 
-namespace dmg::bus {
+namespace pedals::bus {
 	enum InterruptFlag : uint8_t {
 		Joypad	= 0b00010000,
 		Serial	= 0b00001000,
@@ -26,7 +26,7 @@ namespace dmg::bus {
 
 	class Bus {
 	public:
-		Bus(std::shared_ptr<dmg::ppu::PPU> ppu, std::shared_ptr<dmg::joypad::Joypad> joypad, std::shared_ptr<dmg::timer::Timer> timer, std::shared_ptr<dmg::cartridge::Cartridge> cart) :
+		Bus(std::shared_ptr<pedals::ppu::PPU> ppu, std::shared_ptr<pedals::joypad::Joypad> joypad, std::shared_ptr<pedals::timer::Timer> timer, std::shared_ptr<pedals::cartridge::Cartridge> cart) :
 			m_PPU(ppu),
 			m_Joypad(joypad),
 			m_Timer(timer),
@@ -150,10 +150,10 @@ namespace dmg::bus {
 
 		bool m_DisableBootROM = false;
 
-		std::shared_ptr<dmg::ppu::PPU> m_PPU;
-		std::shared_ptr<dmg::joypad::Joypad> m_Joypad;
-		std::shared_ptr<dmg::timer::Timer> m_Timer;
-		std::shared_ptr<dmg::cartridge::Cartridge> m_Cartridge;
+		std::shared_ptr<pedals::ppu::PPU> m_PPU;
+		std::shared_ptr<pedals::joypad::Joypad> m_Joypad;
+		std::shared_ptr<pedals::timer::Timer> m_Timer;
+		std::shared_ptr<pedals::cartridge::Cartridge> m_Cartridge;
 	};
 }
 

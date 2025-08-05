@@ -12,13 +12,13 @@
 #include <print>
 #include <filesystem>
 
-namespace dmg::cartridge {
+namespace pedals::cartridge {
 	class Cartridge {
 	public:
 		Cartridge(std::string_view filename) : m_Filename(filename) {
 			ParseFile();
 
-			dmg::mbc::MBCFeatures features = dmg::mbc::get_mbc_features(m_Raw[0x147]);
+			pedals::mbc::MBCFeatures features = pedals::mbc::get_mbc_features(m_Raw[0x147]);
 			std::optional<std::fstream> stream;
 
 			if (features.ram && features.battery) {
@@ -38,9 +38,9 @@ namespace dmg::cartridge {
 			}
 			
 			switch (features.mbc) {
-				case dmg::mbc::MBCType::MBC1: m_MBC = new dmg::mbc::MBC1(m_Raw, features, stream); break;
-				case dmg::mbc::MBCType::MBC3: m_MBC = new dmg::mbc::MBC3(m_Raw, features, stream); break;
-				case dmg::mbc::MBCType::ROM: m_MBC = new dmg::mbc::NoMBC(m_Raw, features, stream); break;
+				case pedals::mbc::MBCType::MBC1: m_MBC = new pedals::mbc::MBC1(m_Raw, features, stream); break;
+				case pedals::mbc::MBCType::MBC3: m_MBC = new pedals::mbc::MBC3(m_Raw, features, stream); break;
+				case pedals::mbc::MBCType::ROM: m_MBC = new pedals::mbc::NoMBC(m_Raw, features, stream); break;
 
 				default: {
 					std::println("cartridge: mbc type {:02x} is unimplemented", m_Raw[0x147]);
@@ -53,7 +53,7 @@ namespace dmg::cartridge {
 			delete m_MBC;
 		}
 
-		dmg::mbc::BaseMBC* GetMBC() {
+		pedals::mbc::BaseMBC* GetMBC() {
 			return m_MBC;
 		}
 
@@ -62,7 +62,7 @@ namespace dmg::cartridge {
 	private:
 		std::vector<uint8_t> m_Raw;
 		std::string m_Filename;
-		dmg::mbc::BaseMBC* m_MBC;
+		pedals::mbc::BaseMBC* m_MBC;
 	};
 }
 

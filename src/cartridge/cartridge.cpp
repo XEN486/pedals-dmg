@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <fstream>
 
-using namespace dmg::cartridge;
+using namespace pedals::cartridge;
 
 void Cartridge::ParseFile() {
 	std::ifstream file(m_Filename, std::ios::binary | std::ios::ate);

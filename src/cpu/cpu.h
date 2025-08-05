@@ -16,7 +16,7 @@
 		}; \
 	}
 
-namespace dmg::cpu {
+namespace pedals::cpu {
 	enum Flags : uint8_t {
 		Zero		= 0b10000000,
 		Subtraction	= 0b01000000,
@@ -42,7 +42,7 @@ namespace dmg::cpu {
 
 	class SM83 {
 	public:
-		SM83(std::shared_ptr<dmg::bus::Bus> bus) : m_Bus(bus) {}
+		SM83(std::shared_ptr<pedals::bus::Bus> bus) : m_Bus(bus) {}
 		void Reset();
 		void Dump(FILE* stream);
 
@@ -231,7 +231,7 @@ namespace dmg::cpu {
 
 	private:
 		Registers m_Registers;
-		std::shared_ptr<dmg::bus::Bus> m_Bus;
+		std::shared_ptr<pedals::bus::Bus> m_Bus;
 		uint8_t m_LastOpCycles = 0;
 		bool m_IME = false;
 		bool m_EIqueued = false;

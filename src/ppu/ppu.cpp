@@ -1,7 +1,7 @@
 #include "ppu.h"
 #include "../peripherals/bus.h"
 
-using namespace dmg::ppu;
+using namespace pedals::ppu;
 
 void PPU::Tick() {
 	m_Dots++;
@@ -48,7 +48,7 @@ void PPU::Tick() {
 				m_Mode = 0;
 
 				if (m_STAT.GetFlag(registers::LCDStatusBits::Mode0IntSelect)) {
-					m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
+					m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::LCD);
 				}
 			}
 
@@ -68,10 +68,10 @@ void PPU::Tick() {
 					m_ShouldRender = true;
 					m_Mode = 1;
 
-					m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::VBlank);
+					m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::VBlank);
 
 					if (m_STAT.GetFlag(registers::LCDStatusBits::Mode1IntSelect)) {
-						m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
+						m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::LCD);
 					}
 				}
 				
@@ -79,7 +79,7 @@ void PPU::Tick() {
 					m_Mode = 2;
 
 					if (m_STAT.GetFlag(registers::LCDStatusBits::Mode2IntSelect)) {
-						m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
+						m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::LCD);
 					}
 				}
 			}
@@ -108,7 +108,7 @@ void PPU::Tick() {
 		m_STAT.SetWithoutMask(m_STAT.Get() | 0b00000100);
 
 		if (m_STAT.GetFlag(registers::LCDStatusBits::LycIntSelect)) {
-			m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::LCD);
+			m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::LCD);
 		}
 	}
 	

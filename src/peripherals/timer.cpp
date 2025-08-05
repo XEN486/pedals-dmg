@@ -1,6 +1,6 @@
 #include "timer.h"
 #include "bus.h"
-using namespace dmg::timer;
+using namespace pedals::timer;
 
 void Timer::Tick() {
 	m_Cycles++;
@@ -23,7 +23,7 @@ void Timer::Tick() {
 
 			if (m_TIMA == 0x00) {
 				m_TIMA = m_TMA;
-				m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::Timer);
+				m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::Timer);
 			}
 		}
 	}
@@ -46,7 +46,7 @@ void Timer::SetTAC(uint8_t bits) {
 
 				if (m_TIMA == 0x00) {
 					m_TIMA = m_TMA;
-					m_Bus->RequestInterrupt(dmg::bus::InterruptFlag::Timer);
+					m_Bus->RequestInterrupt(pedals::bus::InterruptFlag::Timer);
 				}
 			}
 	}

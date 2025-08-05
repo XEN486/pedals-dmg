@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <print>
 
-namespace dmg::joypad {
+namespace pedals::joypad {
 	enum Button : uint8_t {
 		Start	= 0b10000000,
 		Select	= 0b01000000,

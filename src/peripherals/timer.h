@@ -4,14 +4,14 @@
 #include <memory>
 #include <stdint.h>
 
-namespace dmg::bus {
+namespace pedals::bus {
 	class Bus;
 }
 
-namespace dmg::timer {
+namespace pedals::timer {
 	class Timer {
 	public:
-		void SetBus(std::shared_ptr<dmg::bus::Bus> bus) {
+		void SetBus(std::shared_ptr<pedals::bus::Bus> bus) {
 			m_Bus = bus;
 		}
 
@@ -63,7 +63,7 @@ namespace dmg::timer {
 
 		size_t m_Cycles = 0;
 
-		std::shared_ptr<dmg::bus::Bus> m_Bus;
+		std::shared_ptr<pedals::bus::Bus> m_Bus;
 	};
 }
 

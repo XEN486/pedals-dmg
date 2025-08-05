@@ -1,7 +1,7 @@
 #include "bus.h"
 #include <print>
 
-using namespace dmg::bus;
+using namespace pedals::bus;
 
 #define RouteRange(start, end) if (address >= start && address <= end)
 #define RouteRead(addr, func) if (address == addr) { return func(addr); }

@@ -1,7 +1,7 @@
 #include "cpu.h"
 #include <print>
 
-using namespace dmg::cpu;
+using namespace pedals::cpu;
 
 void SM83::LD(uint16_t& dst, uint16_t src, uint8_t cycles) {
 	dst = src;
@@ -799,7 +799,7 @@ void SM83::Reset() {
 void SM83::Dump(FILE* stream) {
 	std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
 		m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
-		m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
+		m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), pedals::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
 }
 
 void SM83::CBStep() {
@@ -1085,7 +1085,7 @@ void SM83::CBStep() {
 
 		default:
 			m_Registers.pc -= 2;
-			std::println(stderr, "cpu: unknown opcode cb {:02x} [{}]", opcode, dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
+			std::println(stderr, "cpu: unknown opcode cb {:02x} [{}]", opcode, pedals::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
 			Dump(stderr);
 			exit(1);
 	}
@@ -1449,7 +1449,7 @@ uint8_t SM83::Step() {
 		case 0xcb: CBStep(); break;
 		
 		default:
-			std::println(stderr, "cpu: unknown opcode {:02x} [{}]", opcode, dmg::debugger::DisassembleInstruction(m_Bus, --m_Registers.pc));
+			std::println(stderr, "cpu: unknown opcode {:02x} [{}]", opcode, pedals::debugger::DisassembleInstruction(m_Bus, --m_Registers.pc));
 			Dump(stderr);
 			exit(1);
 	}
@@ -1468,11 +1468,11 @@ uint8_t SM83::Step() {
 void SM83::HandleInterrupts() {
 	// interrupts sorted by their priority
 	static const uint8_t int_priorities[] = {
-		dmg::bus::InterruptFlag::VBlank,
-		dmg::bus::InterruptFlag::LCD,
-		dmg::bus::InterruptFlag::Timer,
-		dmg::bus::InterruptFlag::Serial,
-		dmg::bus::InterruptFlag::Joypad,
+		pedals::bus::InterruptFlag::VBlank,
+		pedals::bus::InterruptFlag::LCD,
+		pedals::bus::InterruptFlag::Timer,
+		pedals::bus::InterruptFlag::Serial,
+		pedals::bus::InterruptFlag::Joypad,
 	};
 
 	// interrupt handler addresses
