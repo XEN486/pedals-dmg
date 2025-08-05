@@ -77,6 +77,8 @@ namespace pedals::mbc {
 		BaseMBC(const std::vector<uint8_t>& raw, MBCFeatures features, std::optional<std::fstream>& save_file)
 			: m_Raw(raw), m_Features(features), m_SaveStream(save_file) {}
 
+		virtual ~BaseMBC() = default;
+
 		virtual uint8_t Read(uint16_t) = 0;
 		virtual void Write(uint16_t, uint8_t) = 0;
 

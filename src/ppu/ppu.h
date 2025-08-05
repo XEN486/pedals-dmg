@@ -127,40 +127,40 @@ namespace pedals::ppu {
 			return m_OAM[address - 0xfe00];
 		}
 
-		uint8_t ReadLY(uint16_t _) {
+		uint8_t ReadLY(uint16_t) {
 			return m_LY;
 			//return 0x90;
 		}
 
-		uint8_t ReadLYC(uint16_t _) {
+		uint8_t ReadLYC(uint16_t) {
 			return m_LYC;
 		}
 
-		uint8_t ReadSCX(uint16_t _) {
+		uint8_t ReadSCX(uint16_t) {
 			return m_SCX;
 		}
 
-		uint8_t ReadSCY(uint16_t _) {
+		uint8_t ReadSCY(uint16_t) {
 			return m_SCY;
 		}
 
-		uint8_t ReadBGP(uint16_t _) {
+		uint8_t ReadBGP(uint16_t) {
 			return (m_BGP[3] << 6) | (m_BGP[2] << 4) | (m_BGP[1] << 2) | m_BGP[0];
 		}
 
-		uint8_t ReadOBP0(uint16_t _) {
+		uint8_t ReadOBP0(uint16_t) {
 			return (m_OBP0[3] << 6) | (m_OBP0[2] << 4) | (m_OBP0[1] << 2);
 		}
 
-		uint8_t ReadOBP1(uint16_t _) {
+		uint8_t ReadOBP1(uint16_t) {
 			return (m_OBP1[3] << 6) | (m_OBP1[2] << 4) | (m_OBP1[1] << 2);
 		}
 
-		uint8_t ReadWX(uint16_t _) {
+		uint8_t ReadWX(uint16_t) {
 			return m_WX;
 		}
 
-		uint8_t ReadWY(uint16_t _) {
+		uint8_t ReadWY(uint16_t) {
 			return m_WY;
 		}
 

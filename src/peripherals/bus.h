@@ -94,7 +94,7 @@ namespace pedals::bus {
 		}
 
 	private:
-		void DisableBootROM(uint16_t addr, uint8_t value) {
+		void DisableBootROM(uint16_t, uint8_t) {
 			//std::println("bus: disabled boot ROM access");
 			m_DisableBootROM = true;
 		}

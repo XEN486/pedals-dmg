@@ -1,12 +1,17 @@
 #ifndef SM83_H
 #define SM83_H
 
+#if defined(_MSC_VER)
+#pragma warning(disable: 4201)
+#endif
+
 #include "../peripherals/bus.h"
 #include "debugger.h"
 
 #include <stdint.h>
 #include <memory>
 
+// this uses a nameless struct which is not standard and only works on little-endian host platforms
 #define RegisterPair(h, l) \
 	union { \
 		uint16_t h##l; \

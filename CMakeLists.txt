@@ -16,3 +16,9 @@ target_link_libraries(dmg
 	SDL3::SDL3
 	SDL3_image::SDL3_image
 )
+
+if(MSVC)
+	target_compile_options(dmg PRIVATE /W4)
+else()
+	target_compile_options(dmg PRIVATE -Wall -Wextra)
+endif()

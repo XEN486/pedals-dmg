@@ -1,7 +1,7 @@
 #include <format>
 #include "debugger.h"
 
-static std::string disassemble_cb(std::shared_ptr<pedals::bus::Bus> bus, uint8_t pc) {
+static std::string disassemble_cb(std::shared_ptr<pedals::bus::Bus> bus, uint16_t pc) {
 	switch (bus->ReadMemory(pc)) {
 		case 0x00: return "RLC B";
 		case 0x01: return "RLC C";

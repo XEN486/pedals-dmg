@@ -70,7 +70,7 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 
 		// push byte to stack
 		if (ImGui::Button("Push Byte")) {
-			cpu->StackPush8(stack_push);
+			cpu->StackPush8(static_cast<uint8_t>(stack_push));
 		}
 
 		ImGui::SameLine();
@@ -248,9 +248,11 @@ int main(int argc, char** argv) {
 				ImGui::Begin("LCD");
 					ImVec2 content_size = ImGui::GetContentRegionAvail();
 
+					// calculate the window and image aspect ratios
 					float window_aspect = content_size.x / content_size.y;
 					float image_aspect = float(WIDTH) / float(HEIGHT);
 
+					// scale by which one is bigger
 					float scale;
 					if (window_aspect > image_aspect) {
 						scale = content_size.y / float(HEIGHT);
@@ -258,12 +260,13 @@ int main(int argc, char** argv) {
 						scale = content_size.x / float(WIDTH);
 					}
 
+					// find the offsets
 					ImVec2 image_size = ImVec2(WIDTH * scale, HEIGHT * scale);
 					ImVec2 cursor_pos = ImGui::GetCursorPos();
-
 					float offset_x = (content_size.x - image_size.x) * 0.5f;
 					float offset_y = (content_size.y - image_size.y) * 0.5f;
 
+					// set the offset and draw the image
 					ImGui::SetCursorPos(ImVec2(cursor_pos.x + offset_x, cursor_pos.y + offset_y));
 					ImGui::Image((void*)texture, image_size);
 				ImGui::End();

@@ -20,19 +20,19 @@ namespace pedals::timer {
 		void SetTAC(uint8_t bits);
 		uint8_t GetTAC();
 
-		uint8_t ReadDIV(uint16_t _) {
+		uint8_t ReadDIV(uint16_t) {
 			return m_DIV;
 		}
 
-		uint8_t ReadTIMA(uint16_t _) {
+		uint8_t ReadTIMA(uint16_t) {
 			return m_TIMA;
 		}
 
-		uint8_t ReadTMA(uint16_t _) {
+		uint8_t ReadTMA(uint16_t) {
 			return m_TMA;
 		}
 
-		uint8_t ReadTAC(uint16_t _) {
+		uint8_t ReadTAC(uint16_t) {
 			return GetTAC();
 		}
 

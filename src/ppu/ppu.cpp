@@ -122,7 +122,7 @@ void PPU::Tick() {
 }
 
 void PPU::DMATransferOAM(uint16_t, uint8_t value) {
-	for (size_t i = 0; i < 0xa0; i++) {
+	for (uint8_t i = 0; i < 0xa0; i++) {
 		m_OAM[i] = m_Bus->ReadMemory((value << 8) | i);
 	}
 }
@@ -135,7 +135,7 @@ void PPU::RenderScanline() {
 	uint8_t window_tile_row = m_WindowLine / 8;
 	uint8_t window_pixel_y = m_WindowLine % 8;
 	
-	for (int x = 0; x < WIDTH; x++) {
+	for (uint8_t x = 0; x < WIDTH; x++) {
 		uint8_t bg_window_color = 0;
 
 		if (m_LCDC.GetFlag(registers::LCDControlBits::BgWindowEnable)) {
@@ -150,7 +150,7 @@ void PPU::RenderScanline() {
 
 				uint16_t tile_data_base = m_LCDC.GetFlag(registers::LCDControlBits::BgWindowTileDataArea) ? 0x8000 : 0x9000;
 				int tile_number = (tile_data_base == 0x9000) ? static_cast<int8_t>(tile_index) : tile_index;
-				uint16_t tile_address = tile_data_base + tile_number * 16;
+				uint16_t tile_address = static_cast<uint16_t>(tile_data_base + tile_number * 16);
 
 				uint8_t low_byte = ReadVRAM(tile_address + window_pixel_y * 2);
 				uint8_t high_byte = ReadVRAM(tile_address + window_pixel_y * 2 + 1);
@@ -170,7 +170,7 @@ void PPU::RenderScanline() {
 
 				uint16_t tile_data_base = m_LCDC.GetFlag(registers::LCDControlBits::BgWindowTileDataArea) ? 0x8000 : 0x9000;
 				int tile_number = (tile_data_base == 0x9000) ? static_cast<int8_t>(tile_index) : tile_index;
-				uint16_t tile_address = tile_data_base + tile_number * 16;
+				uint16_t tile_address = static_cast<uint16_t>(tile_data_base + tile_number * 16);
 
 				uint8_t low_byte = ReadVRAM(tile_address + bg_pixel_y * 2);
 				uint8_t high_byte = ReadVRAM(tile_address + bg_pixel_y * 2 + 1);
