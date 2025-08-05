@@ -28,7 +28,6 @@ namespace dmg::cartridge {
 					std::ofstream init_save(save_filename, std::ios::binary);
 					std::vector<char> zero(0x8000, 0);
 					init_save.write(zero.data(), zero.size());
-					std::println("cartridge: new save file");
 				}
 
 				stream.emplace(save_filename, std::ios::in | std::ios::out | std::ios::binary);
@@ -42,7 +41,7 @@ namespace dmg::cartridge {
 				case dmg::mbc::MBCType::ROM: m_MBC = new dmg::mbc::NoMBC(m_Raw, features, stream); break;
 
 				default: {
-					std::println("cartridge: requested MBC is unimplemented!");
+					std::println("cartridge: mbc type {:02x} is unimplemented", m_Raw[0x147]);
 					exit(1);
 				}
 			}
