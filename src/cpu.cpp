@@ -797,16 +797,9 @@ void SM83::Reset() {
 }
 
 void SM83::Dump(FILE* stream) {
-	//std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
-	//	m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
-	//	m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
-
-	std::println(
-		stream, "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
-		m_Registers.a, m_Registers.f, m_Registers.b, m_Registers.c, m_Registers.d, m_Registers.e, m_Registers.h, m_Registers.l,
-		m_Registers.sp, m_Registers.pc,
-		m_Bus->ReadMemory(m_Registers.pc), m_Bus->ReadMemory(m_Registers.pc + 1), m_Bus->ReadMemory(m_Registers.pc + 2), m_Bus->ReadMemory(m_Registers.pc + 3)
-	);
+	std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
+		m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
+		m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), dmg::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
 }
 
 void SM83::CBStep() {
