@@ -3,9 +3,6 @@
 
 #include "base.h"
 
-#include <string>
-#include <fstream>
-
 namespace dmg::mbc {
 	class MBC1 : public BaseMBC {
 	public:

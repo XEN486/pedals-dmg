@@ -5,6 +5,7 @@
 #include <vector>
 #include <print>
 #include <optional>
+#include <fstream>
 
 namespace dmg::mbc {
 	enum class MBCType {

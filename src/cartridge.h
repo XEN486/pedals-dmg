@@ -3,6 +3,7 @@
 
 #include "mbc/base.h"
 #include "mbc/mbc1.h"
+#include "mbc/mbc3.h"
 
 #include <stdint.h>
 #include <string>
@@ -38,6 +39,7 @@ namespace dmg::cartridge {
 			
 			switch (features.mbc) {
 				case dmg::mbc::MBCType::MBC1: m_MBC = new dmg::mbc::MBC1(m_Raw, features, stream); break;
+				case dmg::mbc::MBCType::MBC3: m_MBC = new dmg::mbc::MBC3(m_Raw, features, stream); break;
 				case dmg::mbc::MBCType::ROM: m_MBC = new dmg::mbc::NoMBC(m_Raw, features, stream); break;
 
 				default: {
