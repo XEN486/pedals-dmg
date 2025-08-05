@@ -73,6 +73,20 @@ namespace dmg::ppu::registers {
 }
 
 namespace dmg::ppu {
+	enum SpriteFlags : uint8_t {
+		Priority	= 0b10000000,
+		YFlip		= 0b01000000,
+		XFlip		= 0b00100000,
+		Palette		= 0b00001000,
+	};
+
+	struct Sprite {
+		uint8_t y;
+		uint8_t x;
+		uint8_t tile_index;
+		SpriteFlags flags;
+	};
+
 	class PPU {
 	public:
 		PPU() : m_VideoRAM(0x2000, 0), m_OAM(0xa0, 0), m_Frame(WIDTH * HEIGHT, 0) {}
@@ -208,11 +222,11 @@ namespace dmg::ppu {
 
 		std::vector<uint8_t> m_VideoRAM;
 		std::vector<uint8_t> m_OAM;
+		std::vector<uint8_t> m_Frame;
+		std::vector<Sprite> m_Sprites;
 
 		registers::LCDControlRegister m_LCDC;
 		registers::LCDStatusRegister m_STAT;
-
-		std::vector<uint8_t> m_Frame;
 
 		uint8_t m_LY = 0;
 		uint8_t m_LYC = 0;
@@ -230,7 +244,7 @@ namespace dmg::ppu {
 		uint8_t m_Mode = 2;
 		uint8_t m_WindowLine = 0;
 		
-		size_t m_Cycles = 0;
+		size_t m_Dots = 0;
 		size_t m_Mode3Penalty = 0;
 
 		bool m_ShouldRender = false;

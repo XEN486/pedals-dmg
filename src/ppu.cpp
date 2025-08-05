@@ -4,10 +4,35 @@
 using namespace dmg::ppu;
 
 void PPU::Tick() {
-	m_Cycles++;
+	m_Dots++;
+
 	switch (m_Mode) {
 		case 2: {
-			if (m_Cycles == 80) {
+			if (m_Dots == 1) {
+				m_Sprites.clear();
+			}
+
+			if (m_Dots < 80 && m_Dots % 2 == 0) {
+				size_t sprite_index = m_Dots / 2;
+				
+				if (sprite_index < 40) {
+					size_t oam_index = sprite_index * 4;
+
+					uint8_t y = m_OAM[oam_index];
+					uint8_t x = m_OAM[oam_index + 1];
+					uint8_t tile = m_OAM[oam_index + 2];
+					SpriteFlags flags = static_cast<SpriteFlags>(m_OAM[oam_index + 3]);
+
+					int sprite_height = m_LCDC.GetFlag(registers::LCDControlBits::ObjSize) ? 16 : 8;
+					uint8_t sprite_y = y - 16;
+
+					if (m_LY >= sprite_y && m_LY < sprite_y + sprite_height && m_Sprites.size() < 10) {
+						m_Sprites.emplace_back(y, x, tile, flags);
+					}
+				}
+			}
+
+			if (m_Dots == 80) {
 				m_Mode = 3;
 			}
 
@@ -15,11 +40,11 @@ void PPU::Tick() {
 		}
 
 		case 3: {
-			if (m_Cycles == 81) {
+			if (m_Dots == 81) {
 				RenderScanline();
 			}
 
-			else if (m_Cycles == (80 + 172 + m_Mode3Penalty)) {
+			else if (m_Dots == (80 + 172 + m_Mode3Penalty)) {
 				m_Mode = 0;
 
 				if (m_STAT.GetFlag(registers::LCDStatusBits::Mode0IntSelect)) {
@@ -31,8 +56,8 @@ void PPU::Tick() {
 		}
 
 		case 0: {
-			if (m_Cycles == 456) {
-				m_Cycles = 0;
+			if (m_Dots == 456) {
+				m_Dots = 0;
 
 				m_LY++;
 				if (m_LY >= m_WY) {
@@ -63,8 +88,8 @@ void PPU::Tick() {
 		}
 
 		case 1: {
-			if (m_Cycles == 456) {
-				m_Cycles = 0;
+			if (m_Dots == 456) {
+				m_Dots = 0;
 				m_LY++;
 
 				if (m_LY == 154) {
@@ -97,7 +122,7 @@ void PPU::Tick() {
 }
 
 void PPU::DMATransferOAM(uint16_t, uint8_t value) {
-	for (size_t i = 0; i < 0x9f; i++) {
+	for (size_t i = 0; i < 0xa0; i++) {
 		m_OAM[i] = m_Bus->ReadMemory((value << 8) | i);
 	}
 }
@@ -156,5 +181,45 @@ void PPU::RenderScanline() {
 		}
 
 		m_Frame[m_LY * WIDTH + x] = m_BGP[bg_window_color];
+
+		// sprites
+		if (m_LCDC.GetFlag(registers::LCDControlBits::ObjEnable)) {
+			for (const Sprite& sprite : m_Sprites) {
+				uint8_t sprite_x = sprite.x - 8;
+				uint8_t sprite_y = sprite.y - 16;
+				uint8_t sprite_height = m_LCDC.GetFlag(registers::LCDControlBits::ObjSize) ? 16 : 8;
+
+				if (m_LY >= sprite_y && m_LY < sprite_y + sprite_height && x >= sprite_x && x < sprite_x + 8) {
+					uint8_t pixel_x = x - sprite_x;
+					uint8_t line_y = m_LY - sprite_y;
+
+					uint8_t tile_index = sprite.tile_index;
+					if (sprite_height == 16) tile_index &= 0xfe;
+
+					uint16_t tile_address = 0x8000 + tile_index * 16;
+					if (sprite_height == 16 && line_y >= 8) {
+						tile_address += 16;
+						line_y -= 8;
+					}
+
+					if (sprite.flags & SpriteFlags::YFlip) line_y = 7 - line_y;
+					if (sprite.flags & SpriteFlags::XFlip) pixel_x = 7 - pixel_x;
+
+					uint8_t low_byte = ReadVRAM(tile_address + line_y * 2);
+					uint8_t high_byte = ReadVRAM(tile_address + line_y * 2 + 1);
+
+					uint8_t bit_index = 7 - pixel_x;
+					uint8_t sprite_color_index = ((high_byte >> bit_index) & 1) << 1 | ((low_byte >> bit_index) & 1);
+
+					if (sprite_color_index != 0) {
+						uint8_t color = (sprite.flags & SpriteFlags::Palette) ? m_OBP1[sprite_color_index] : m_OBP0[sprite_color_index];
+
+						if (!((sprite.flags & SpriteFlags::Priority) && bg_window_color != 0)) {
+							m_Frame[m_LY * WIDTH + x] = color;
+						}
+					}
+				}
+			}
+		}
 	}
 }
