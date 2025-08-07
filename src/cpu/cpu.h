@@ -51,20 +51,24 @@ namespace pedals::cpu {
 		void Reset();
 		void Dump(FILE* stream);
 
-		void ToggleDump() {
-			m_DumpInstruction = !m_DumpInstruction;
-		}
-
 		// returns the T-cycles the step took
 		uint8_t Step();
 
+		bool InInterrupt() const {
+			return m_HandlingInterrupt;
+		}
+
 	public:
-		Registers& GetRegisters() {
+		Registers& GetRegistersRef() {
 			return m_Registers;
 		}
 		
-		bool& GetIME() {
+		bool& GetIMERef() {
 			return m_IME;
+		}
+
+		bool& GetRETIRef() {
+			return m_RETI;
 		}
 
 	private:
@@ -245,11 +249,13 @@ namespace pedals::cpu {
 		uint8_t m_LastOpCycles = 0;
 		bool m_IME = false;
 		bool m_EIqueued = false;
-		bool m_DumpInstruction = false;
 
 		State m_State = State::Normal;
 		bool m_DoubleRead = false;
 		bool m_DontExecuteHandler = false;
+		
+		bool m_HandlingInterrupt = false;
+		bool m_RETI = false;
 	};
 }
 

@@ -246,6 +246,9 @@ void SM83::RETI() {
 	m_IME = true;
 	m_Registers.pc = StackPop16();
 	m_LastOpCycles += 16;
+
+	m_HandlingInterrupt = false;
+	m_RETI = true;
 }
 
 void SM83::SUB(uint8_t value, uint8_t cycles) {
@@ -1496,6 +1499,8 @@ void SM83::HandleInterrupts() {
             StackPush16(m_Registers.pc);
             m_Registers.pc = int_handlers[i];
             m_LastOpCycles += 20;
+
+			m_HandlingInterrupt = true;
             break;
         }
     }

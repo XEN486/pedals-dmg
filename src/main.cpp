@@ -29,8 +29,16 @@ static void init_palette(SDL_PixelFormat pfmt) {
 	palette[4] = SDL_MapRGBA(fmt, nullptr, 0xd2, 0xe6, 0xa6, 255); // LCD off color
 }
 
-static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedals::bus::Bus> bus, std::shared_ptr<pedals::timer::Timer> timer, std::shared_ptr<pedals::ppu::PPU> ppu, bool& single_step) {
-	auto& regs = cpu->GetRegisters();
+static void cpu_ui(
+	std::shared_ptr<pedals::cpu::SM83> cpu,
+	std::shared_ptr<pedals::bus::Bus> bus,
+	std::shared_ptr<pedals::timer::Timer> timer,
+	std::shared_ptr<pedals::ppu::PPU> ppu,
+	bool& single_step,
+	bool& break_on_interrupt,
+	bool& break_on_reti
+) {
+	auto& regs = cpu->GetRegistersRef();
 
 	std::string disassembly = pedals::debugger::DisassembleInstruction(bus, regs.pc);
 	static uint16_t stack_push = 0;
@@ -39,16 +47,14 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 
 	// CPU state viewer/editor
 	ImGui::Begin("SM83");
+		// CPU controls section
 		ImGui::Text("Controls");
-
-		// CPU single step mode
 		if (ImGui::Button(single_step ? "Unpause" : "Pause")) {
 			single_step = !single_step;
 		}
 
-		ImGui::SameLine();
-
 		// CPU step
+		ImGui::SameLine();
 		if (ImGui::Button("Step")) {
 			uint8_t step_cycles = cpu->Step();
 			for (size_t i = 0; i < step_cycles; i++) {
@@ -57,9 +63,8 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 			}
 		}
 
-		ImGui::SameLine();
-
 		// CPU reset
+		ImGui::SameLine();
 		if (ImGui::Button("Reset")) {
 			cpu->Reset();
 			bus->SetBootROMVisibility(true);
@@ -70,43 +75,56 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 			ImGui::InputScalar("##stackpush", ImGuiDataType_U16, &stack_push, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 		ImGui::PopItemWidth();
 
-		ImGui::SameLine();
 
 		// push byte to stack
-		if (ImGui::Button("Push Low Byte")) {
+		ImGui::SameLine();
+		if (ImGui::Button("Push Byte")) {
 			cpu->StackPush8(static_cast<uint8_t>(stack_push));
 		}
+
+		// push word to stack
 		ImGui::SameLine();
 		if (ImGui::Button("Push Word")) {
 			cpu->StackPush16(stack_push);
 		}
 
-		// Register section
+		// registers section
 		ImGui::Text("Registers");
 		ImGui::PushItemWidth(36);
 			ImGui::InputScalar("AF", ImGuiDataType_U16, &regs.af, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
-			ImGui::SameLine();
-			ImGui::InputScalar("BC", ImGuiDataType_U16, &regs.bc, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
-			ImGui::SameLine();
-			ImGui::InputScalar("DE", ImGuiDataType_U16, &regs.de, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
-			ImGui::SameLine();
-			ImGui::InputScalar("HL", ImGuiDataType_U16, &regs.hl, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
+			ImGui::SameLine(); ImGui::InputScalar("BC", ImGuiDataType_U16, &regs.bc, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
+			ImGui::SameLine(); ImGui::InputScalar("DE", ImGuiDataType_U16, &regs.de, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
+			ImGui::SameLine(); ImGui::InputScalar("HL", ImGuiDataType_U16, &regs.hl, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 			ImGui::InputScalar("PC", ImGuiDataType_U16, &regs.pc, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
-			ImGui::SameLine();
-			ImGui::InputScalar("SP", ImGuiDataType_U16, &regs.sp, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
+			ImGui::SameLine(); ImGui::InputScalar("SP", ImGuiDataType_U16, &regs.sp, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 		ImGui::PopItemWidth();
 
-		ImGui::Text("Interrupts");
+		// interrupts section
+		ImGui::Text("Interrupts (%s interrupt)", cpu->InInterrupt() ? "handling an" : "not in an");
 		ImGui::PushItemWidth(16);
-			ImGui::InputScalar("IME", ImGuiDataType_U8, &cpu->GetIME(), nullptr, nullptr, "%d", ImGuiInputTextFlags_None);
-			ImGui::SameLine();
-		ImGui::PopItemWidth();
-		ImGui::PushItemWidth(64);
-			ImGui::InputScalar("IE", ImGuiDataType_U8, &bus->GetIERef(), nullptr, nullptr, "%08b", ImGuiInputTextFlags_None);
-			ImGui::SameLine();
-			ImGui::InputScalar("IF", ImGuiDataType_U8, &bus->GetIFRef(), nullptr, nullptr, "%08b", ImGuiInputTextFlags_None);
+			ImGui::InputScalar("IME", ImGuiDataType_U8, &cpu->GetIMERef(), nullptr, nullptr, "%d", ImGuiInputTextFlags_None);
 		ImGui::PopItemWidth();
 
+		// IE and IF
+		ImGui::PushItemWidth(64);
+			ImGui::SameLine(); ImGui::InputScalar("IE", ImGuiDataType_U8, &bus->GetIERef(), nullptr, nullptr, "%08b", ImGuiInputTextFlags_None);
+			ImGui::SameLine(); ImGui::InputScalar("IF", ImGuiDataType_U8, &bus->GetIFRef(), nullptr, nullptr, "%08b", ImGuiInputTextFlags_None);
+		ImGui::PopItemWidth();
+
+		// enter single step mode on interrupt
+		if (ImGui::Button("Break on Interrupt")) {
+			break_on_interrupt = true;
+			break_on_reti = false;
+		}
+
+		// enter single step mode when leaving interrupt
+		ImGui::SameLine();
+		if (ImGui::Button("Break on RETI")) {
+			break_on_reti = true;
+			break_on_interrupt = false;
+		}
+
+		// disassembly of the current instruction
 		ImGui::Text("Disassembly");
 		ImGui::Text("%04x: %s", regs.pc, disassembly.c_str());
 
@@ -213,6 +231,8 @@ int main(int argc, char** argv) {
 	SDL_Event event;
 	bool running = true;
 	bool single_step = false;
+	bool break_on_interrupt = false;
+	bool break_on_reti = false;
 
 	// timing constants
 	const int cycles_per_frame = 70224;
@@ -272,6 +292,17 @@ int main(int argc, char** argv) {
 				ppu->Tick();
 				timer->Tick();
 			}
+
+			if (break_on_interrupt && cpu->InInterrupt()) {
+				single_step = true;
+				break_on_interrupt = false;
+			}
+
+			if (break_on_reti && cpu->GetRETIRef()) {
+				single_step = true;
+				break_on_reti = false;
+				cpu->GetRETIRef() = false;
+			}
 		}
 
 		// render the window if the PPU says we should render
@@ -292,7 +323,7 @@ int main(int argc, char** argv) {
 			SDL_UpdateTexture(texture, nullptr, frame, WIDTH * sizeof(uint32_t));
 
 			// debug windows
-			cpu_ui(cpu, bus, timer, ppu, single_step);
+			cpu_ui(cpu, bus, timer, ppu, single_step, break_on_interrupt, break_on_reti);
 
 			// LCD viewport
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
