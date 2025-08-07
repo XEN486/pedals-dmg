@@ -8,6 +8,7 @@
 #include <print>
 #include <fstream>
 #include <cstdio>
+#include <filesystem>
 
 #include "thirdparty/imgui.h"
 #include "thirdparty/imgui_impl_sdl3.h"
@@ -112,10 +113,36 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 	ImGui::End();
 }
 
+static void file_callback(void* userdata, const char* const* filelist, int filter) {
+	if (filelist && filelist[0]) {
+		std::string* out = static_cast<std::string*>(userdata);
+		*out = filelist[0];
+	}
+
+	(void)filter;
+}
+
+static std::string read_rom_title(std::shared_ptr<pedals::bus::Bus> bus) {
+	std::string title;
+
+	for (uint16_t address = 0x134; address <= 0x143; address++) {
+		uint8_t byte = bus->ReadMemory(address);
+		if (byte == 0x00) break;
+		title += static_cast<char>(byte);
+	}
+
+	return title;
+}
+
 int main(int argc, char** argv) {
-	// check if we have enough arguments
-	if (argc < 3) {
-		std::println("usage: {} [boot rom] [.gb rom]", argv[0]);
+	std::string rom_name;
+	if (argc > 1) {
+		rom_name = argv[1];
+	}
+
+	// check for the dmg_boot.bin boot rom
+	if (!std::filesystem::exists("dmg_boot.bin")) {
+		std::println(stderr, "you must download 'dmg_boot.bin' and put it in the working directory.");
 		return 1;
 	}
 
@@ -129,6 +156,20 @@ int main(int argc, char** argv) {
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
 	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
 	SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+
+	// render a black frame so there is something on the window while the file picker is open
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+	SDL_RenderClear(renderer);
+	SDL_RenderPresent(renderer);
+
+	// if there was no rom specified in the commadn line arguments then show a file picker
+	if (rom_name.empty()) {
+		SDL_DialogFileFilter filter = { .name = "GameBoy ROM", .pattern = "gb" };
+		SDL_ShowOpenFileDialog(file_callback, &rom_name, window, &filter, 1, nullptr, false);
+
+		// pump events so the window responds
+		while (rom_name.empty()) SDL_PumpEvents();
+	}
 
 	// create imgui context
 	IMGUI_CHECKVERSION();
@@ -152,7 +193,7 @@ int main(int argc, char** argv) {
 	auto ppu	= std::make_shared<pedals::ppu::PPU>();
 	auto timer	= std::make_shared<pedals::timer::Timer>();
 	auto joypad	= std::make_shared<pedals::joypad::Joypad>();
-	auto cart	= std::make_shared<pedals::cartridge::Cartridge>(argv[2]);
+	auto cart	= std::make_shared<pedals::cartridge::Cartridge>(rom_name);
 	auto bus	= std::make_shared<pedals::bus::Bus>(ppu, joypad, timer, cart);
 	auto cpu	= std::make_shared<pedals::cpu::SM83>(bus);
 
@@ -161,8 +202,12 @@ int main(int argc, char** argv) {
 	timer->SetBus(bus);
 
 	// load boot ROM
-	bus->LoadBootROM(argv[1]);
+	bus->LoadBootROM("dmg_boot.bin");
 	cpu->Reset();
+
+	// set the window title to show the title section inside the cartridge header
+	std::string window_title = "Pedals DMG - " + read_rom_title(bus);
+	SDL_SetWindowTitle(window, window_title.c_str());
 
 	// event and emulator state
 	SDL_Event event;
