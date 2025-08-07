@@ -9,9 +9,9 @@
 #include <fstream>
 #include <cstdio>
 
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_sdl3.h"
-#include "imgui/imgui_impl_sdlrenderer3.h"
+#include "thirdparty/imgui.h"
+#include "thirdparty/imgui_impl_sdl3.h"
+#include "thirdparty/imgui_impl_sdlrenderer3.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
@@ -30,8 +30,11 @@ static void init_palette(SDL_PixelFormat pfmt) {
 
 static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedals::bus::Bus> bus, std::shared_ptr<pedals::timer::Timer> timer, std::shared_ptr<pedals::ppu::PPU> ppu, bool& single_step) {
 	auto& regs = cpu->GetRegisters();
+
 	std::string disassembly = pedals::debugger::DisassembleInstruction(bus, regs.pc);
 	static uint16_t stack_push = 0;
+	static uint8_t ie = 0;
+	static uint8_t if_ = 0;
 
 	// CPU state viewer/editor
 	ImGui::Begin("SM83");
@@ -61,7 +64,7 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 			bus->SetBootROMVisibility(true);
 		}
 
-		// byte to push to stack
+		// value to push to stack
 		ImGui::PushItemWidth(36);
 			ImGui::InputScalar("##stackpush", ImGuiDataType_U16, &stack_push, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 		ImGui::PopItemWidth();
@@ -69,20 +72,17 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 		ImGui::SameLine();
 
 		// push byte to stack
-		if (ImGui::Button("Push Byte")) {
+		if (ImGui::Button("Push Low Byte")) {
 			cpu->StackPush8(static_cast<uint8_t>(stack_push));
 		}
-
 		ImGui::SameLine();
-
-		// push word to stack
 		if (ImGui::Button("Push Word")) {
 			cpu->StackPush16(stack_push);
 		}
 
+		// Register section
 		ImGui::Text("Registers");
 		ImGui::PushItemWidth(36);
-			// pair register row
 			ImGui::InputScalar("AF", ImGuiDataType_U16, &regs.af, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 			ImGui::SameLine();
 			ImGui::InputScalar("BC", ImGuiDataType_U16, &regs.bc, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
@@ -90,24 +90,31 @@ static void cpu_ui(std::shared_ptr<pedals::cpu::SM83> cpu, std::shared_ptr<pedal
 			ImGui::InputScalar("DE", ImGuiDataType_U16, &regs.de, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 			ImGui::SameLine();
 			ImGui::InputScalar("HL", ImGuiDataType_U16, &regs.hl, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
-			
-			// pc and sp row
 			ImGui::InputScalar("PC", ImGuiDataType_U16, &regs.pc, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 			ImGui::SameLine();
 			ImGui::InputScalar("SP", ImGuiDataType_U16, &regs.sp, nullptr, nullptr, "%04x", ImGuiInputTextFlags_None);
 		ImGui::PopItemWidth();
 
-		ImGui::SameLine();
+		ImGui::Text("Interrupts");
+		ImGui::PushItemWidth(16);
+			ImGui::InputScalar("IME", ImGuiDataType_U8, &cpu->GetIME(), nullptr, nullptr, "%d", ImGuiInputTextFlags_None);
+			ImGui::SameLine();
+		ImGui::PopItemWidth();
+		ImGui::PushItemWidth(64);
+			ImGui::InputScalar("IE", ImGuiDataType_U8, &bus->GetIERef(), nullptr, nullptr, "%08b", ImGuiInputTextFlags_None);
+			ImGui::SameLine();
+			ImGui::InputScalar("IF", ImGuiDataType_U8, &bus->GetIFRef(), nullptr, nullptr, "%08b", ImGuiInputTextFlags_None);
+		ImGui::PopItemWidth();
 
-		// instruction at PC
-		ImGui::Text("%s", disassembly.c_str());
+		ImGui::Text("Disassembly");
+		ImGui::Text("%04x: %s", regs.pc, disassembly.c_str());
 
 	ImGui::End();
 }
 
 int main(int argc, char** argv) {
 	// check if we have enough arguments
-	if (argc < 3) {	
+	if (argc < 3) {
 		std::println("usage: {} [boot rom] [.gb rom]", argv[0]);
 		return 1;
 	}
@@ -122,7 +129,6 @@ int main(int argc, char** argv) {
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
 	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
 	SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
 	// create imgui context
 	IMGUI_CHECKVERSION();
@@ -187,26 +193,26 @@ int main(int argc, char** argv) {
 					}
 
 					// joypad
-					if (event.key.key == SDLK_S) joypad->SetButtonState(pedals::joypad::Button::B, true);
-					if (event.key.key == SDLK_A) joypad->SetButtonState(pedals::joypad::Button::A, true);
-					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(pedals::joypad::Button::Start, true);
-					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(pedals::joypad::Button::Select, true);
-					if (event.key.key == SDLK_UP) joypad->SetButtonState(pedals::joypad::Button::Up, true);
-					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(pedals::joypad::Button::Down, true);
-					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(pedals::joypad::Button::Left, true);
-					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(pedals::joypad::Button::Right, true);
+					if (event.key.key == SDLK_S)		joypad->SetButtonState(pedals::joypad::Button::B, true);
+					if (event.key.key == SDLK_A)		joypad->SetButtonState(pedals::joypad::Button::A, true);
+					if (event.key.key == SDLK_RETURN)	joypad->SetButtonState(pedals::joypad::Button::Start, true);
+					if (event.key.key == SDLK_SPACE)	joypad->SetButtonState(pedals::joypad::Button::Select, true);
+					if (event.key.key == SDLK_UP)		joypad->SetButtonState(pedals::joypad::Button::Up, true);
+					if (event.key.key == SDLK_DOWN)		joypad->SetButtonState(pedals::joypad::Button::Down, true);
+					if (event.key.key == SDLK_LEFT)		joypad->SetButtonState(pedals::joypad::Button::Left, true);
+					if (event.key.key == SDLK_RIGHT)	joypad->SetButtonState(pedals::joypad::Button::Right, true);
 					break;
 
 				case SDL_EVENT_KEY_UP:
 					// joypad
-					if (event.key.key == SDLK_S) joypad->SetButtonState(pedals::joypad::Button::B, false);
-					if (event.key.key == SDLK_A) joypad->SetButtonState(pedals::joypad::Button::A, false);
-					if (event.key.key == SDLK_RETURN) joypad->SetButtonState(pedals::joypad::Button::Start, false);
-					if (event.key.key == SDLK_SPACE) joypad->SetButtonState(pedals::joypad::Button::Select, false);
-					if (event.key.key == SDLK_UP) joypad->SetButtonState(pedals::joypad::Button::Up, false);
-					if (event.key.key == SDLK_DOWN) joypad->SetButtonState(pedals::joypad::Button::Down, false);
-					if (event.key.key == SDLK_LEFT) joypad->SetButtonState(pedals::joypad::Button::Left, false);
-					if (event.key.key == SDLK_RIGHT) joypad->SetButtonState(pedals::joypad::Button::Right, false);
+					if (event.key.key == SDLK_S)		joypad->SetButtonState(pedals::joypad::Button::B, false);
+					if (event.key.key == SDLK_A)		joypad->SetButtonState(pedals::joypad::Button::A, false);
+					if (event.key.key == SDLK_RETURN)	joypad->SetButtonState(pedals::joypad::Button::Start, false);
+					if (event.key.key == SDLK_SPACE)	joypad->SetButtonState(pedals::joypad::Button::Select, false);
+					if (event.key.key == SDLK_UP)		joypad->SetButtonState(pedals::joypad::Button::Up, false);
+					if (event.key.key == SDLK_DOWN)		joypad->SetButtonState(pedals::joypad::Button::Down, false);
+					if (event.key.key == SDLK_LEFT)		joypad->SetButtonState(pedals::joypad::Button::Left, false);
+					if (event.key.key == SDLK_RIGHT)	joypad->SetButtonState(pedals::joypad::Button::Right, false);
 					break;
 			}
 		}

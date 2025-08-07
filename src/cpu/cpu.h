@@ -62,6 +62,10 @@ namespace pedals::cpu {
 		Registers& GetRegisters() {
 			return m_Registers;
 		}
+		
+		bool& GetIME() {
+			return m_IME;
+		}
 
 	private:
 		inline bool GetFlag(Flags flag) {

@@ -93,6 +93,17 @@ namespace pedals::bus {
 			m_IE = value;
 		}
 
+	public:
+		// this should be used for the debugger only
+		uint8_t& GetIFRef() {
+			return m_IF;
+		}
+
+		// this should be used for the debugger only
+		uint8_t& GetIERef() {
+			return m_IE;
+		}
+
 	private:
 		void DisableBootROM(uint16_t, uint8_t) {
 			//std::println("bus: disabled boot ROM access");
