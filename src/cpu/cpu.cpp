@@ -1094,10 +1094,6 @@ void SM83::CBStep() {
 }
 
 uint8_t SM83::Step() {
-	if (m_DumpInstruction) {
-		Dump(stdout);
-	}
-
 	m_LastOpCycles = 0;
 
 	bool enable_interrupts = m_EIqueued;
