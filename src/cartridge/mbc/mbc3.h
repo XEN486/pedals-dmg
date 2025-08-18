@@ -10,9 +10,7 @@ namespace pedals::mbc {
 		using BaseMBC::BaseMBC;
 
 		MBC3(const std::vector<uint8_t>& raw, MBCFeatures features, std::optional<std::fstream>& save_file)
-			: BaseMBC(raw, features, save_file),
-			m_RAM(0x8000, 0) // 4 banks * 8KB = 32KB RAM
-		{
+			: BaseMBC(raw, features, save_file), m_RAM(0x8000, 0) {
 			if (m_SaveStream && m_SaveStream->is_open()) {
 				m_SaveStream->read(reinterpret_cast<char*>(m_RAM.data()), m_RAM.size());
 			}
@@ -53,30 +51,30 @@ namespace pedals::mbc {
 				if (ram_offset < m_RAM.size()) {
 					return m_RAM[ram_offset];
 				}
-				return 0xFF;
+				return 0xff;
 			}
 
-			return 0xFF;
+			return 0xff;
 		}
 
 		void Write(uint16_t address, uint8_t value) override {
-			if (address <= 0x1FFF) {
+			if (address <= 0x1fff) {
 				// RAM enable
-				m_RAMEnabled = (value & 0x0F) == 0x0A;
+				m_RAMEnabled = (value & 0x0f) == 0x0a;
 			}
 
-			else if (address >= 0x2000 && address <= 0x3FFF) {
+			else if (address >= 0x2000 && address <= 0x3fff) {
 				// ROM bank number
 				value &= 0b01111111;
 				m_ROMBank = (value == 0) ? 1 : value;
 			}
 
-			else if (address >= 0x4000 && address <= 0x5FFF) {
+			else if (address >= 0x4000 && address <= 0x5fff) {
 				if (value <= 0x03) {
 					m_RAMBank = value;
 					m_UsingRTC = false;
 				}
-				else if (value >= 0x08 && value <= 0x0C) {
+				else if (value >= 0x08 && value <= 0x0c) {
 					m_RTCRegister = value;
 					m_UsingRTC = true;
 				}

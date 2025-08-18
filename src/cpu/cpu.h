@@ -6,7 +6,7 @@
 #endif
 
 #include "../peripherals/bus.h"
-#include "debugger.h"
+#include "disassembler.h"
 
 #include <stdint.h>
 #include <memory>

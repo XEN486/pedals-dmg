@@ -57,6 +57,10 @@ namespace pedals::cartridge {
 			return m_MBC;
 		}
 
+		std::vector<uint8_t>& GetRawRef() {
+			return m_Raw;
+		}
+
 		void ParseFile();
 
 	private:

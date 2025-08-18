@@ -799,12 +799,6 @@ void SM83::Reset() {
 	m_Registers.f = 0x00;
 }
 
-void SM83::Dump(FILE* stream) {
-	std::println(stream, "{:04x}: af = {:04x} bc = {:04x} de = {:04x} hl = {:04x} [{:02x}] sp = {:04x} ime = {} if = {:08b} ie = {:08b} [{}]",
-		m_Registers.pc, m_Registers.af, m_Registers.bc, m_Registers.de, m_Registers.hl, m_Bus->ReadMemory(m_Registers.hl), m_Registers.sp, m_IME,
-		m_Bus->ReadMemory(0xff0f), m_Bus->ReadMemory(0xffff), pedals::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
-}
-
 void SM83::CBStep() {
 	uint8_t opcode = Fetch8();
 	switch (opcode) {
@@ -1086,10 +1080,7 @@ void SM83::CBStep() {
 		case 0x2e: SRA(m_Registers.hl); break;
 		case 0x2f: SRA(m_Registers.a); break;
 
-		default:
-			m_Registers.pc -= 2;
-			std::println(stderr, "cpu: unknown opcode cb {:02x} [{}]", opcode, pedals::debugger::DisassembleInstruction(m_Bus, m_Registers.pc));
-			Dump(stderr);
+		default: break;
 	}
 }
 
@@ -1446,9 +1437,7 @@ uint8_t SM83::Step() {
 		// CB prefix
 		case 0xcb: CBStep(); break;
 		
-		default:
-			std::println(stderr, "cpu: unknown opcode {:02x} [{}]", opcode, pedals::debugger::DisassembleInstruction(m_Bus, --m_Registers.pc));
-			Dump(stderr);
+		default: break;
 	}
 
 	// handle any interrupts

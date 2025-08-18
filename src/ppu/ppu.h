@@ -4,6 +4,7 @@
 #define WIDTH 160
 #define HEIGHT 144
 
+#include <array>
 #include <vector>
 #include <memory>
 
@@ -85,6 +86,7 @@ namespace pedals::ppu {
 		uint8_t x;
 		uint8_t tile_index;
 		SpriteFlags flags;
+		size_t oam_index;
 	};
 
 	class PPU {
@@ -118,6 +120,18 @@ namespace pedals::ppu {
 		
 		void Tick();
 
+	public:
+		std::array<uint8_t, 4>& GetBGPRef() {
+			return m_BGP;
+		}
+		
+		std::array<uint8_t, 4>& GetOBP0Ref() {
+			return m_OBP0;
+		}
+		
+		std::array<uint8_t, 4>& GetOBP1Ref() {
+			return m_OBP1;
+		}
 	public:
 		uint8_t ReadVRAM(uint16_t address) {
 			return m_VideoRAM[address - 0x8000];
@@ -186,22 +200,30 @@ namespace pedals::ppu {
 		}
 
 		void WriteBGP(uint16_t, uint8_t value) {
-			m_BGP[3] = (value & 0b11000000) >> 6;
-			m_BGP[2] = (value & 0b00110000) >> 4;
-			m_BGP[1] = (value & 0b00001100) >> 2;
-			m_BGP[0] = (value & 0b00000011) >> 0;
+			m_BGP = {
+				static_cast<uint8_t>((value & 0b00000011) >> 0),
+				static_cast<uint8_t>((value & 0b00001100) >> 2),
+				static_cast<uint8_t>((value & 0b00110000) >> 4),
+				static_cast<uint8_t>((value & 0b11000000) >> 6)
+			};
 		}
 
 		void WriteOBP0(uint16_t, uint8_t value) {
-			m_OBP0[3] = (value & 0b11000000) >> 6;
-			m_OBP0[2] = (value & 0b00110000) >> 4;
-			m_OBP0[1] = (value & 0b00001100) >> 2;
+			m_OBP0 = {
+				static_cast<uint8_t>((value & 0b00000011) >> 0),
+				static_cast<uint8_t>((value & 0b00001100) >> 2),
+				static_cast<uint8_t>((value & 0b00110000) >> 4),
+				static_cast<uint8_t>((value & 0b11000000) >> 6)
+			};
 		}
 
 		void WriteOBP1(uint16_t, uint8_t value) {
-			m_OBP1[3] = (value & 0b11000000) >> 6;
-			m_OBP1[2] = (value & 0b00110000) >> 4;
-			m_OBP1[1] = (value & 0b00001100) >> 2;
+			m_OBP1 = {
+				static_cast<uint8_t>((value & 0b00000011) >> 0),
+				static_cast<uint8_t>((value & 0b00001100) >> 2),
+				static_cast<uint8_t>((value & 0b00110000) >> 4),
+				static_cast<uint8_t>((value & 0b11000000) >> 6)
+			};
 		}
 
 		void WriteWX(uint16_t, uint8_t value) {
@@ -234,20 +256,22 @@ namespace pedals::ppu {
 		uint8_t m_SCX = 0;
 		uint8_t m_SCY = 0;
 
-		uint8_t m_BGP[4] = { 0 };
-		uint8_t m_OBP0[4] = { 0 };
-		uint8_t m_OBP1[4] = { 0 };
+		std::array<uint8_t, 4> m_BGP = { 0, 0, 0, 0 };
+		std::array<uint8_t, 4> m_OBP0 = { 0, 0, 0, 0 };
+		std::array<uint8_t, 4> m_OBP1 = { 0, 0, 0, 0 };
 
 		uint8_t m_WX = 0;
 		uint8_t m_WY = 0;
 
 		uint8_t m_Mode = 2;
 		uint8_t m_WindowLine = 0;
+		bool m_WindowLineResetPending = false;
 		
-		size_t m_Dots = 0;
+		int m_Dots = 0;
 		size_t m_Mode3Penalty = 0;
 
 		bool m_ShouldRender = false;
+		bool m_DontCheckLYC = false;
 	};
 }
 

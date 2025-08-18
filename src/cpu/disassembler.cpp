@@ -1,5 +1,5 @@
 #include <format>
-#include "debugger.h"
+#include "disassembler.h"
 
 static std::string disassemble_cb(std::shared_ptr<pedals::bus::Bus> bus, uint16_t pc) {
 	switch (bus->ReadMemory(pc)) {
@@ -288,7 +288,7 @@ const char* op_table[] = {
 	"-", 		"", 			"RST $38"
 };
 
-std::string pedals::debugger::DisassembleInstruction(std::shared_ptr<pedals::bus::Bus> bus, uint16_t pc) {
+std::string pedals::cpu::DisassembleInstruction(std::shared_ptr<pedals::bus::Bus> bus, uint16_t pc) {
 	uint16_t n16 = bus->ReadMemory16(pc + 1);
 	uint8_t n8 = bus->ReadMemory(pc + 1);
 	int8_t e8 = static_cast<int8_t>(n8);

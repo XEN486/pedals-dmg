@@ -5,6 +5,8 @@
 #include "peripherals/joypad.h"
 #include "peripherals/timer.h"
 
+#include "debugger.h"
+
 #include <print>
 #include <fstream>
 #include <cstdio>
@@ -20,6 +22,9 @@
 static uint32_t frame[WIDTH * HEIGHT];
 static uint32_t palette[5];
 
+#define RGBA(x) ((x & 0xff000000) >> 24) / 255.0f, ((x & 0x00ff0000) >> 16) / 255.0f, ((x & 0x0000ff00) >> 8) / 255.0f, ((x & 0x000000ff) >> 0) / 255.0f
+
+
 static void init_palette(SDL_PixelFormat pfmt) {
 	const SDL_PixelFormatDetails* fmt = SDL_GetPixelFormatDetails(pfmt);
 	palette[0] = SDL_MapRGBA(fmt, nullptr, 0xc6, 0xde, 0x8c, 255);
@@ -29,124 +34,6 @@ static void init_palette(SDL_PixelFormat pfmt) {
 	palette[4] = SDL_MapRGBA(fmt, nullptr, 0xd2, 0xe6, 0xa6, 255); // LCD off color
 }
 
-static void draw_control_buttons(
-	std::shared_ptr<pedals::cpu::SM83> cpu,
-	std::shared_ptr<pedals::bus::Bus> bus,
-	std::shared_ptr<pedals::timer::Timer> timer,
-	std::shared_ptr<pedals::ppu::PPU> ppu,
-	bool& single_step
-) {
-    if (ImGui::Button(single_step ? "Unpause" : "Pause")) {
-        single_step = !single_step;
-    }
-
-    ImGui::SameLine();
-    if (ImGui::Button("Step")) {
-        uint8_t step_cycles = cpu->Step();
-        for (size_t i = 0; i < step_cycles; i++) {
-            ppu->Tick();
-            timer->Tick();
-        }
-    }
-
-    ImGui::SameLine();
-    if (ImGui::Button("Reset")) {
-        cpu->Reset();
-        bus->SetBootROMVisibility(true);
-    }
-}
-
-static void draw_stack_controls(std::shared_ptr<pedals::cpu::SM83> cpu) {
-    static uint16_t stack_push = 0;
-
-    ImGui::PushItemWidth(36);
-    ImGui::InputScalar("##stackpush", ImGuiDataType_U16, &stack_push, nullptr, nullptr, "%04x");
-    ImGui::PopItemWidth();
-
-    ImGui::SameLine();
-    if (ImGui::Button("Push Byte")) cpu->StackPush8(static_cast<uint8_t>(stack_push));
-    ImGui::SameLine();
-    if (ImGui::Button("Push Word")) cpu->StackPush16(stack_push);
-}
-
-static void draw_registers(pedals::cpu::Registers& regs) {
-    ImGui::PushItemWidth(36);
-
-    ImGui::InputScalar("AF", ImGuiDataType_U16, &regs.af, nullptr, nullptr, "%04x"); ImGui::SameLine();
-    ImGui::InputScalar("BC", ImGuiDataType_U16, &regs.bc, nullptr, nullptr, "%04x"); ImGui::SameLine();
-    ImGui::InputScalar("DE", ImGuiDataType_U16, &regs.de, nullptr, nullptr, "%04x"); ImGui::SameLine();
-    ImGui::InputScalar("HL", ImGuiDataType_U16, &regs.hl, nullptr, nullptr, "%04x");
-
-    ImGui::InputScalar("PC", ImGuiDataType_U16, &regs.pc, nullptr, nullptr, "%04x"); ImGui::SameLine();
-    ImGui::InputScalar("SP", ImGuiDataType_U16, &regs.sp, nullptr, nullptr, "%04x");
-
-    ImGui::PopItemWidth();
-}
-
-static void draw_interrupts(
-	std::shared_ptr<pedals::cpu::SM83> cpu,
-    std::shared_ptr<pedals::bus::Bus> bus,
-    bool& break_on_interrupt,
-    bool& break_on_reti
-) {
-
-	ImGui::Text("%s interrupt", cpu->InInterrupt() ? "Handling an" : "Not in an");
-    ImGui::PushItemWidth(16);
-    ImGui::InputScalar("IME", ImGuiDataType_U8, &cpu->GetIMERef(), nullptr, nullptr, "%d");
-    ImGui::PopItemWidth();
-
-    ImGui::PushItemWidth(64);
-    ImGui::SameLine();
-    ImGui::InputScalar("IE", ImGuiDataType_U8, &bus->GetIERef(), nullptr, nullptr, "%08b");
-    ImGui::SameLine();
-    ImGui::InputScalar("IF", ImGuiDataType_U8, &bus->GetIFRef(), nullptr, nullptr, "%08b");
-    ImGui::PopItemWidth();
-
-    if (ImGui::Button("Break on Interrupt")) {
-        break_on_interrupt = true;
-        break_on_reti = false;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Break on RETI")) {
-        break_on_reti = true;
-        break_on_interrupt = false;
-    }
-}
-
-static void draw_disassembly(std::shared_ptr<pedals::bus::Bus> bus, pedals::cpu::Registers& regs) {
-    std::string disasm = pedals::debugger::DisassembleInstruction(bus, regs.pc);
-    ImGui::Text("%04x: %s", regs.pc, disasm.c_str());
-}
-
-static void draw_cpu_ui(
-    std::shared_ptr<pedals::cpu::SM83> cpu,
-    std::shared_ptr<pedals::bus::Bus> bus,
-    std::shared_ptr<pedals::timer::Timer> timer,
-    std::shared_ptr<pedals::ppu::PPU> ppu,
-    bool& single_step,
-    bool& break_on_interrupt,
-    bool& break_on_reti
-) {
-    pedals::cpu::Registers& regs = cpu->GetRegistersRef();
-    ImGui::Begin("SM83");
-
-	ImGui::SeparatorText("Controls");
-    draw_control_buttons(cpu, bus, timer, ppu, single_step);
-
-	ImGui::SeparatorText("Stack");
-    draw_stack_controls(cpu);
-
-	ImGui::SeparatorText("Registers");
-    draw_registers(regs);
-
-    ImGui::SeparatorText("Interrupts");
-    draw_interrupts(cpu, bus, break_on_interrupt, break_on_reti);
-
-	ImGui::SeparatorText("Disassembly");
-    draw_disassembly(bus, regs);
-
-    ImGui::End();
-}
 
 
 static void file_callback(void* userdata, const char* const* filelist, int filter) {
@@ -232,6 +119,9 @@ int main(int argc, char** argv) {
 	auto cart	= std::make_shared<pedals::cartridge::Cartridge>(rom_name);
 	auto bus	= std::make_shared<pedals::bus::Bus>(ppu, joypad, timer, cart);
 	auto cpu	= std::make_shared<pedals::cpu::SM83>(bus);
+	
+	// create the debug ui
+	pedals::debugger::DebugUI debug_ui(cpu, bus, timer, ppu, cart, palette);
 
 	// we set the bus here to stop circular dependencies
 	ppu->SetBus(bus);
@@ -248,9 +138,6 @@ int main(int argc, char** argv) {
 	// event and emulator state
 	SDL_Event event;
 	bool running = true;
-	bool single_step = false;
-	bool break_on_interrupt = false;
-	bool break_on_reti = false;
 
 	// timing constants
 	const int cycles_per_frame = 70224;
@@ -302,7 +189,7 @@ int main(int argc, char** argv) {
 
 		// run a frame worth of emulation
 		uint32_t frame_cycles = 0;
-		while (frame_cycles < cycles_per_frame && !single_step) {
+		while (frame_cycles < cycles_per_frame && !debug_ui.GetSingleStep()) {
 			uint8_t step_cycles = cpu->Step();
 			frame_cycles += step_cycles;
 
@@ -311,26 +198,29 @@ int main(int argc, char** argv) {
 				timer->Tick();
 			}
 
-			if (break_on_interrupt && cpu->InInterrupt()) {
-				single_step = true;
-				break_on_interrupt = false;
+			if (debug_ui.GetBreakOnInterrupt() && cpu->InInterrupt()) {
+				debug_ui.GetSingleStep() = true;
+				debug_ui.GetBreakOnInterrupt() = false;
 			}
 
-			if (break_on_reti && cpu->GetRETIRef()) {
-				single_step = true;
-				break_on_reti = false;
+			if (debug_ui.GetBreakOnRETI() && cpu->GetRETIRef() && !cpu->InInterrupt()) {
+				debug_ui.GetSingleStep() = true;
+				debug_ui.GetBreakOnRETI() = false;
 				cpu->GetRETIRef() = false;
 			}
 		}
 
 		// render the window if the PPU says we should render
 		// or if we are single stepping to stop the window from timing out
-		if (ppu->ShouldRender() || single_step) {
+		if (ppu->ShouldRender() || debug_ui.GetSingleStep()) {
 			// begin imgui frame
 			ImGui_ImplSDLRenderer3_NewFrame();
 			ImGui_ImplSDL3_NewFrame();
 			ImGui::NewFrame();
 			ImGui::DockSpaceOverViewport(0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
+
+			// render the debug ui
+			debug_ui.Draw();
 
 			// convert the ppu indexed image to an RGBA array
 			for (size_t i = 0; i < WIDTH * HEIGHT; i++) {
@@ -339,9 +229,6 @@ int main(int argc, char** argv) {
 
 			// update the SDL texture
 			SDL_UpdateTexture(texture, nullptr, frame, WIDTH * sizeof(uint32_t));
-
-			// debug windows
-			draw_cpu_ui(cpu, bus, timer, ppu, single_step, break_on_interrupt, break_on_reti);
 
 			// LCD viewport
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));

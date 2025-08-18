@@ -104,6 +104,21 @@ namespace pedals::bus {
 			return m_IE;
 		}
 
+		// this should be used for the debugger only
+		std::vector<uint8_t>& GetWorkRAMRef() {
+			return m_WorkRAM;
+		}
+
+		// this should be used for the debugger only
+		std::vector<uint8_t>& GetHighRAMRef() {
+			return m_HighRAM;
+		}
+
+		// this should be used for the debugger only
+		std::vector<uint8_t>& GetBootROMRef() {
+			return m_BootROM;
+		}
+
 	private:
 		void DisableBootROM(uint16_t, uint8_t) {
 			//std::println("bus: disabled boot ROM access");
