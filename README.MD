@@ -23,7 +23,7 @@ Then, run the emulator executable and a file picker should pop up. Select any ``
 ## Compiling the emulator
 The emulator uses CMake and vcpkg to build.
 
-Set the enviroment variable ``VCPKG_ROOT`` to the root of your vcpkg installation, then build as you would any other CMake project.
+Set the environment variable ``VCPKG_ROOT`` to the root of your vcpkg installation, then build as you would any other CMake project.
 
 ## Resources
 ### General
