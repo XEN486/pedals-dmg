@@ -1,12 +1,12 @@
-#ifndef SM83_H
-#define SM83_H
+#ifndef CPU_HPP
+#define CPU_HPP
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4201)
 #endif
 
-#include "../peripherals/bus.h"
-#include "disassembler.h"
+#include "../peripherals/bus.hpp"
+#include "disassembler.hpp"
 
 #include <stdint.h>
 #include <memory>

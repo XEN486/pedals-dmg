@@ -1,4 +1,4 @@
-#include "cpu.h"
+#include "cpu.hpp"
 #include <print>
 
 using namespace pedals::cpu;

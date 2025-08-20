@@ -1,9 +1,9 @@
-#ifndef CARTRIDGE_H
-#define CARTRIDGE_H
+#ifndef CARTRIDGE_HPP
+#define CARTRIDGE_HPP
 
-#include "mbc/base.h"
-#include "mbc/mbc1.h"
-#include "mbc/mbc3.h"
+#include "mbc/base.hpp"
+#include "mbc/mbc1.hpp"
+#include "mbc/mbc3.hpp"
 
 #include <stdint.h>
 #include <string>

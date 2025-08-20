@@ -1,7 +1,7 @@
-#ifndef MBC3_H
-#define MBC3_H
+#ifndef MBC3_HPP
+#define MBC3_HPP
 
-#include "base.h"
+#include "base.hpp"
 #include <iostream>
 
 namespace pedals::mbc {

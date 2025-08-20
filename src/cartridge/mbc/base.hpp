@@ -1,5 +1,5 @@
-#ifndef MBC_BASE_H
-#define MBC_BASE_H
+#ifndef MBC_BASE_HPP
+#define MBC_BASE_HPP
 
 #include <stdint.h>
 #include <vector>

@@ -1,5 +1,5 @@
 #include <format>
-#include "disassembler.h"
+#include "disassembler.hpp"
 
 static std::string disassemble_cb(std::shared_ptr<pedals::bus::Bus> bus, uint16_t pc) {
 	switch (bus->ReadMemory(pc)) {

@@ -1,12 +1,12 @@
-#ifndef DEBUGGER_H
-#define DEBUGGER_H
+#ifndef DEBUGGER_HPP
+#define DEBUGGER_HPP
 
-#include "cpu/cpu.h"
-#include "peripherals/bus.h"
-#include "cartridge/cartridge.h"
-#include "peripherals/joypad.h"
-#include "peripherals/timer.h"
-#include "ppu/ppu.h"
+#include "cpu/cpu.hpp"
+#include "peripherals/bus.hpp"
+#include "cartridge/cartridge.hpp"
+#include "peripherals/joypad.hpp"
+#include "peripherals/timer.hpp"
+#include "ppu/ppu.hpp"
 
 #include "thirdparty/imgui.h"
 #include "thirdparty/imgui_memory_editor.h"

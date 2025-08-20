@@ -1,5 +1,5 @@
-#include "timer.h"
-#include "bus.h"
+#include "timer.hpp"
+#include "bus.hpp"
 using namespace pedals::timer;
 
 void Timer::Tick() {

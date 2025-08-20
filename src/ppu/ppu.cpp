@@ -1,5 +1,5 @@
-#include "ppu.h"
-#include "../peripherals/bus.h"
+#include "ppu.hpp"
+#include "../peripherals/bus.hpp"
 
 #include <algorithm>
 using namespace pedals::ppu;

@@ -1,10 +1,10 @@
-#ifndef BUS_H
-#define BUS_H
+#ifndef BUS_HPP
+#define BUS_HPP
 
-#include "../ppu/ppu.h"
-#include "../cartridge/cartridge.h"
-#include "joypad.h"
-#include "timer.h"
+#include "../ppu/ppu.hpp"
+#include "../cartridge/cartridge.hpp"
+#include "joypad.hpp"
+#include "timer.hpp"
 
 #include <stdint.h>
 #include <memory>

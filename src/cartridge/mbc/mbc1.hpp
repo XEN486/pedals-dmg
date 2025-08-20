@@ -1,7 +1,7 @@
-#ifndef MBC1_H
-#define MBC1_H
+#ifndef MBC1_HPP
+#define MBC1_HPP
 
-#include "base.h"
+#include "base.hpp"
 
 namespace pedals::mbc {
 	class MBC1 : public BaseMBC {

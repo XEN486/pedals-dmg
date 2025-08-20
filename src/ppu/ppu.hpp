@@ -1,5 +1,5 @@
-#ifndef PPU_H
-#define PPU_H
+#ifndef PPU_HPP
+#define PPU_HPP
 
 #define WIDTH 160
 #define HEIGHT 144

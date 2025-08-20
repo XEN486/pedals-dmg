@@ -1,5 +1,5 @@
-#ifndef JOYPAD_H
-#define JOYPAD_H
+#ifndef JOYPAD_HPP
+#define JOYPAD_HPP
 
 #include <stdint.h>
 #include <print>

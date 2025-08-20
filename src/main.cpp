@@ -1,11 +1,11 @@
-#include "cpu/cpu.h"
-#include "peripherals/bus.h"
-#include "cartridge/cartridge.h"
-#include "ppu/ppu.h"
-#include "peripherals/joypad.h"
-#include "peripherals/timer.h"
+#include "cpu/cpu.hpp"
+#include "peripherals/bus.hpp"
+#include "cartridge/cartridge.hpp"
+#include "ppu/ppu.hpp"
+#include "peripherals/joypad.hpp"
+#include "peripherals/timer.hpp"
 
-#include "debugger.h"
+#include "debugger.hpp"
 
 #include <print>
 #include <fstream>
@@ -22,9 +22,6 @@
 static uint32_t frame[WIDTH * HEIGHT];
 static uint32_t palette[5];
 
-#define RGBA(x) ((x & 0xff000000) >> 24) / 255.0f, ((x & 0x00ff0000) >> 16) / 255.0f, ((x & 0x0000ff00) >> 8) / 255.0f, ((x & 0x000000ff) >> 0) / 255.0f
-
-
 static void init_palette(SDL_PixelFormat pfmt) {
 	const SDL_PixelFormatDetails* fmt = SDL_GetPixelFormatDetails(pfmt);
 	palette[0] = SDL_MapRGBA(fmt, nullptr, 0xc6, 0xde, 0x8c, 255);
@@ -33,8 +30,6 @@ static void init_palette(SDL_PixelFormat pfmt) {
 	palette[3] = SDL_MapRGBA(fmt, nullptr, 0x08, 0x18, 0x10, 255);
 	palette[4] = SDL_MapRGBA(fmt, nullptr, 0xd2, 0xe6, 0xa6, 255); // LCD off color
 }
-
-
 
 static void file_callback(void* userdata, const char* const* filelist, int filter) {
 	if (filelist && filelist[0]) {
@@ -65,7 +60,7 @@ int main(int argc, char** argv) {
 
 	// check for the dmg_boot.bin boot rom
 	if (!std::filesystem::exists("dmg_boot.bin")) {
-		std::println(stderr, "you must download 'dmg_boot.bin' and put it in the working directory.");
+		std::println(stderr, "you must get a copy of 'dmg_boot.bin' and put it in the working directory.");
 		return 1;
 	}
 
